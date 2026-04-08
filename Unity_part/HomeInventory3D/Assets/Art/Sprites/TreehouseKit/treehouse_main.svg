@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 360" width="280" height="360">
+  <!-- Shadow -->
+  <ellipse cx="140" cy="352" rx="80" ry="12" fill="#00000033"/>
+
+  <!-- Trunk -->
+  <path d="M90,358 Q72,330 88,298 L100,248 L180,248 L192,298 Q208,330 190,358 Z"
+        fill="#7a5810" stroke="#1a1209" stroke-width="3.5" stroke-linejoin="round"/>
+  <path d="M103,298 Q95,272 108,248 L172,248 Q185,272 177,298 Q150,308 103,298 Z"
+        fill="#9a6e18" stroke="#1a1209" stroke-width="3"/>
+
+  <!-- Trunk knot left -->
+  <path d="M112,288 Q124,278 136,288 Q124,298 112,288 Z"
+        fill="#6a4e0e" stroke="#1a1209" stroke-width="2"/>
+  <!-- Trunk knot right -->
+  <path d="M152,308 Q164,298 176,308 Q164,318 152,308 Z"
+        fill="#6a4e0e" stroke="#1a1209" stroke-width="2"/>
+
+  <!-- Platform deck boards -->
+  <rect x="68" y="242" width="144" height="14" rx="2" fill="#c4923a" stroke="#1a1209" stroke-width="3"/>
+  <line x1="95"  y1="242" x2="95"  y2="256" stroke="#9a6e18" stroke-width="1.5"/>
+  <line x1="122" y1="242" x2="122" y2="256" stroke="#9a6e18" stroke-width="1.5"/>
+  <line x1="149" y1="242" x2="149" y2="256" stroke="#9a6e18" stroke-width="1.5"/>
+  <line x1="176" y1="242" x2="176" y2="256" stroke="#9a6e18" stroke-width="1.5"/>
+  <!-- Railing posts -->
+  <line x1="72"  y1="232" x2="72"  y2="248" stroke="#1a1209" stroke-width="3" stroke-linecap="round"/>
+  <line x1="208" y1="232" x2="208" y2="248" stroke="#1a1209" stroke-width="3" stroke-linecap="round"/>
+  <line x1="72"  y1="234" x2="208" y2="234" stroke="#1a1209" stroke-width="2.5"/>
+
+  <!-- Canopy main blob -->
+  <ellipse cx="140" cy="138" rx="128" ry="118" fill="#4d8c3a" stroke="#1a1209" stroke-width="4"/>
+  <!-- Canopy inner lighter area -->
+  <ellipse cx="128" cy="112" rx="82" ry="68" fill="#5fa848"/>
+
+  <!-- Drooping canopy fronds -->
+  <path d="M38,192 Q26,226 38,256 Q52,244 54,210 Z"
+        fill="#4d8c3a" stroke="#1a1209" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M84,222 Q78,252 90,268 Q104,258 100,228 Z"
+        fill="#4d8c3a" stroke="#1a1209" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M148,228 Q144,256 154,272 Q168,262 164,234 Z"
+        fill="#4d8c3a" stroke="#1a1209" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M204,210 Q216,238 210,260 Q226,250 228,222 Z"
+        fill="#4d8c3a" stroke="#1a1209" stroke-width="3" stroke-linejoin="round"/>
+
+  <!-- Canopy texture lines -->
+  <path d="M100,72 Q138,56 178,76" fill="none" stroke="#3d7230" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M72,112 Q128,94 190,116" fill="none" stroke="#3d7230" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M58,154 Q122,138 198,158" fill="none" stroke="#3d7230" stroke-width="2"   stroke-linecap="round"/>
+  <path d="M62,192 Q110,178 182,195" fill="none" stroke="#3d7230" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Window / door opening in canopy -->
+  <rect x="116" y="155" width="48" height="38" rx="5" fill="#d0dca8" stroke="#1a1209" stroke-width="2.5"/>
+  <rect x="116" y="155" width="48" height="38" rx="5" fill="none" stroke="#1a1209" stroke-width="2.5"/>
+  <line x1="140" y1="155" x2="140" y2="193" stroke="#8aaa58" stroke-width="1.5"/>
+  <line x1="116" y1="174" x2="164" y2="174" stroke="#8aaa58" stroke-width="1.5"/>
+
+  <!-- Antenna / pipe on top -->
+  <line x1="152" y1="24" x2="162" y2="6"  stroke="#778888" stroke-width="5" stroke-linecap="round"/>
+  <ellipse cx="163" cy="5" rx="6" ry="5" fill="#99aaaa" stroke="#1a1209" stroke-width="2"/>
+
+  <!-- Bridge connector stub right -->
+  <rect x="218" y="200" width="62" height="12" rx="2" fill="#c4923a" stroke="#1a1209" stroke-width="2.5"/>
+  <line x1="230" y1="200" x2="230" y2="212" stroke="#9a6e18" stroke-width="1.5"/>
+  <line x1="248" y1="200" x2="248" y2="212" stroke="#9a6e18" stroke-width="1.5"/>
+  <line x1="266" y1="200" x2="266" y2="212" stroke="#9a6e18" stroke-width="1.5"/>
+
+  <!-- Bridge connector stub left -->
+  <rect x="0" y="215" width="52" height="12" rx="2" fill="#c4923a" stroke="#1a1209" stroke-width="2.5"/>
+  <line x1="14"  y1="215" x2="14"  y2="227" stroke="#9a6e18" stroke-width="1.5"/>
+  <line x1="32"  y1="215" x2="32"  y2="227" stroke="#9a6e18" stroke-width="1.5"/>
+
+  <!-- Hanging lanterns from canopy -->
+  <line x1="80"  y1="186" x2="78"  y2="202" stroke="#7a5810" stroke-width="2"/>
+  <rect x="70"   y="202"  width="17" height="23" rx="3" fill="#f0a030" stroke="#1a1209" stroke-width="2"/>
+  <rect x="70"   y="202"  width="17" height="6"  rx="1" fill="#c4923a" stroke="#1a1209" stroke-width="1.5"/>
+  <rect x="70"   y="219"  width="17" height="6"  rx="1" fill="#c4923a" stroke="#1a1209" stroke-width="1.5"/>
+
+  <line x1="178" y1="180" x2="180" y2="198" stroke="#7a5810" stroke-width="2"/>
+  <rect x="172"  y="198"  width="17" height="23" rx="3" fill="#f0a030" stroke="#1a1209" stroke-width="2"/>
+  <rect x="172"  y="198"  width="17" height="6"  rx="1" fill="#c4923a" stroke="#1a1209" stroke-width="1.5"/>
+  <rect x="172"  y="215"  width="17" height="6"  rx="1" fill="#c4923a" stroke="#1a1209" stroke-width="1.5"/>
+</svg>

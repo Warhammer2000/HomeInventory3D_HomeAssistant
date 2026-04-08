@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 220" width="140" height="220">
+  <!-- Shadow -->
+  <ellipse cx="70" cy="214" rx="38" ry="8" fill="#00000033"/>
+
+  <!-- Thin trunk -->
+  <path d="M56,215 Q50,190 58,165 L82,165 Q90,190 84,215 Z"
+        fill="#8B6914" stroke="#1a1209" stroke-width="3" stroke-linejoin="round"/>
+
+  <!-- Canopy main blob -->
+  <ellipse cx="70" cy="95" rx="60" ry="82" fill="#4d8c3a" stroke="#1a1209" stroke-width="4"/>
+  <!-- Canopy lighter inner -->
+  <ellipse cx="62" cy="76" rx="36" ry="52" fill="#5fa848"/>
+
+  <!-- Drooping fronds -->
+  <path d="M16,142 Q8,166 16,188 Q28,178 30,152 Z"
+        fill="#4d8c3a" stroke="#1a1209" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M50,168 Q44,190 54,204 Q66,196 62,172 Z"
+        fill="#4d8c3a" stroke="#1a1209" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M96,158 Q104,180 98,200 Q112,192 114,166 Z"
+        fill="#4d8c3a" stroke="#1a1209" stroke-width="3" stroke-linejoin="round"/>
+
+  <!-- Canopy texture lines -->
+  <path d="M42,42 Q68,28 98,46"  fill="none" stroke="#3d7230" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M26,80 Q62,64 108,84"  fill="none" stroke="#3d7230" stroke-width="2"   stroke-linecap="round"/>
+  <path d="M18,120 Q60,106 114,124" fill="none" stroke="#3d7230" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Small door opening -->
+  <rect x="54" y="118" width="32" height="28" rx="4" fill="#d0dca8" stroke="#1a1209" stroke-width="2.5"/>
+  <line x1="70" y1="118" x2="70" y2="146" stroke="#8aaa58" stroke-width="1.5"/>
+  <line x1="54" y1="132" x2="86" y2="132" stroke="#8aaa58" stroke-width="1.5"/>
+
+  <!-- Bridge stub (right side) -->
+  <rect x="120" y="130" width="20" height="10" rx="2" fill="#c4923a" stroke="#1a1209" stroke-width="2"/>
+
+  <!-- Hanging lantern -->
+  <line x1="28" y1="148" x2="26" y2="162" stroke="#7a5810" stroke-width="2"/>
+  <rect x="19"  y="162" width="14" height="18" rx="3" fill="#f0a030" stroke="#1a1209" stroke-width="2"/>
+  <rect x="19"  y="162" width="14" height="5"  rx="1" fill="#c4923a" stroke="#1a1209" stroke-width="1.5"/>
+  <rect x="19"  y="175" width="14" height="5"  rx="1" fill="#c4923a" stroke="#1a1209" stroke-width="1.5"/>
+
+  <!-- Hanging bucket/bell at bottom branch tip -->
+  <line x1="104" y1="175" x2="106" y2="195" stroke="#7a5810" stroke-width="2"/>
+  <ellipse cx="107" cy="200" rx="7" ry="5" fill="#aaaaaa" stroke="#1a1209" stroke-width="2"/>
+  <path d="M100,200 Q107,210 114,200" fill="none" stroke="#1a1209" stroke-width="2"/>
+</svg>

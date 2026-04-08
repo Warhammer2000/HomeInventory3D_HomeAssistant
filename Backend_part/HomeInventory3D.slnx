@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/HomeInventory3D.Api/HomeInventory3D.Api.csproj" />
+    <Project Path="src/HomeInventory3D.Application/HomeInventory3D.Application.csproj" />
+    <Project Path="src/HomeInventory3D.Domain/HomeInventory3D.Domain.csproj" />
+    <Project Path="src/HomeInventory3D.Infrastructure/HomeInventory3D.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/HomeInventory3D.Tests/HomeInventory3D.Tests.csproj" />
+  </Folder>
+</Solution>

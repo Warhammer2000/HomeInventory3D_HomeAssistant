@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 160" width="180" height="160">
+  <!-- Shadow -->
+  <ellipse cx="90" cy="155" rx="72" ry="10" fill="#00000033"/>
+
+  <!-- Stone foundation row -->
+  <rect x="12" y="118" width="156" height="18" rx="3" fill="#8a8878" stroke="#1a1209" stroke-width="2.5"/>
+  <line x1="36"  y1="118" x2="36"  y2="136" stroke="#1a1209" stroke-width="1.5"/>
+  <line x1="62"  y1="118" x2="62"  y2="136" stroke="#1a1209" stroke-width="1.5"/>
+  <line x1="90"  y1="118" x2="90"  y2="136" stroke="#1a1209" stroke-width="1.5"/>
+  <line x1="118" y1="118" x2="118" y2="136" stroke="#1a1209" stroke-width="1.5"/>
+  <line x1="144" y1="118" x2="144" y2="136" stroke="#1a1209" stroke-width="1.5"/>
+  <!-- Stone texture circles -->
+  <circle cx="24"  cy="127" r="3" fill="#7a7868" stroke="#1a1209" stroke-width="1"/>
+  <circle cx="49"  cy="127" r="3" fill="#7a7868" stroke="#1a1209" stroke-width="1"/>
+  <circle cx="76"  cy="127" r="3" fill="#7a7868" stroke="#1a1209" stroke-width="1"/>
+  <circle cx="104" cy="127" r="3" fill="#7a7868" stroke="#1a1209" stroke-width="1"/>
+  <circle cx="131" cy="127" r="3" fill="#7a7868" stroke="#1a1209" stroke-width="1"/>
+  <circle cx="157" cy="127" r="3" fill="#7a7868" stroke="#1a1209" stroke-width="1"/>
+
+  <!-- Cabin walls (wooden planks) -->
+  <rect x="18" y="50" width="144" height="70" rx="2" fill="#7b6898" stroke="#1a1209" stroke-width="3"/>
+  <!-- Horizontal plank lines -->
+  <line x1="18" y1="64"  x2="162" y2="64"  stroke="#6a5882" stroke-width="2"/>
+  <line x1="18" y1="78"  x2="162" y2="78"  stroke="#6a5882" stroke-width="2"/>
+  <line x1="18" y1="92"  x2="162" y2="92"  stroke="#6a5882" stroke-width="2"/>
+  <line x1="18" y1="106" x2="162" y2="106" stroke="#6a5882" stroke-width="2"/>
+
+  <!-- Roof overhang left -->
+  <polygon points="0,52 18,50 18,40 0,42" fill="#5c4a70" stroke="#1a1209" stroke-width="2.5"/>
+  <!-- Roof overhang right -->
+  <polygon points="162,50 180,52 180,42 162,40" fill="#5c4a70" stroke="#1a1209" stroke-width="2.5"/>
+  <!-- Roof main -->
+  <rect x="0" y="26" width="180" height="28" rx="2" fill="#5c4a70" stroke="#1a1209" stroke-width="3"/>
+  <!-- Roof plank lines -->
+  <line x1="30"  y1="26" x2="30"  y2="54" stroke="#4a3860" stroke-width="1.5"/>
+  <line x1="60"  y1="26" x2="60"  y2="54" stroke="#4a3860" stroke-width="1.5"/>
+  <line x1="90"  y1="26" x2="90"  y2="54" stroke="#4a3860" stroke-width="1.5"/>
+  <line x1="120" y1="26" x2="120" y2="54" stroke="#4a3860" stroke-width="1.5"/>
+  <line x1="150" y1="26" x2="150" y2="54" stroke="#4a3860" stroke-width="1.5"/>
+  <!-- Roof peak ridge -->
+  <rect x="30" y="18" width="120" height="12" rx="3" fill="#4a3860" stroke="#1a1209" stroke-width="2.5"/>
+
+  <!-- Door -->
+  <rect x="68" y="80" width="34" height="40" rx="4" fill="#8b5e28" stroke="#1a1209" stroke-width="2.5"/>
+  <rect x="68" y="80" width="34" height="18" rx="0" fill="#7a5020" stroke="none"/>
+  <circle cx="99" cy="101" r="3" fill="#d4a840" stroke="#1a1209" stroke-width="1.5"/>
+
+  <!-- Window left -->
+  <rect x="26" y="62" width="28" height="24" rx="3" fill="#a8c8d8" stroke="#1a1209" stroke-width="2.5"/>
+  <line x1="40" y1="62" x2="40" y2="86" stroke="#1a1209" stroke-width="1.5"/>
+  <line x1="26" y1="74" x2="54" y2="74" stroke="#1a1209" stroke-width="1.5"/>
+  <!-- Window light reflection -->
+  <rect x="28" y="64" width="10" height="8" rx="1" fill="#c8e8f8" fill-opacity="0.6"/>
+
+  <!-- Window right -->
+  <rect x="126" y="62" width="28" height="24" rx="3" fill="#a8c8d8" stroke="#1a1209" stroke-width="2.5"/>
+  <line x1="140" y1="62" x2="140" y2="86" stroke="#1a1209" stroke-width="1.5"/>
+  <line x1="126" y1="74" x2="154" y2="74" stroke="#1a1209" stroke-width="1.5"/>
+  <rect x="128" y="64" width="10" height="8" rx="1" fill="#c8e8f8" fill-opacity="0.6"/>
+
+  <!-- Small bush left -->
+  <circle cx="10" cy="132" r="12" fill="#4d8c3a" stroke="#1a1209" stroke-width="2"/>
+  <circle cx="24" cy="136" r="9"  fill="#4d8c3a" stroke="#1a1209" stroke-width="2"/>
+
+  <!-- Small cactus right -->
+  <rect x="158" y="118" width="8"  height="22" rx="4" fill="#4d8c3a" stroke="#1a1209" stroke-width="2"/>
+  <rect x="150" y="124" width="8"  height="10" rx="4" fill="#4d8c3a" stroke="#1a1209" stroke-width="2"/>
+  <rect x="164" y="122" width="8"  height="8"  rx="4" fill="#4d8c3a" stroke="#1a1209" stroke-width="2"/>
+</svg>

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 110" width="220" height="110">
+  <!-- Water body -->
+  <ellipse cx="110" cy="65" rx="106" ry="42" fill="#4a9eb5" stroke="#1a1209" stroke-width="3.5"/>
+
+  <!-- Water shimmer highlights -->
+  <path d="M55,55  Q80,50  100,56"  fill="none" stroke="#7ac8dc" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+  <path d="M120,48 Q148,43 170,50"  fill="none" stroke="#7ac8dc" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+  <path d="M70,70  Q95,65  120,72"  fill="none" stroke="#7ac8dc" stroke-width="2"   stroke-linecap="round" opacity="0.5"/>
+  <path d="M130,68 Q155,63 178,70"  fill="none" stroke="#7ac8dc" stroke-width="2"   stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Lily pad 1 (left) -->
+  <path d="M62,62 A24,16 0 1 1 62.1,62 Z" fill="#4d8c3a" stroke="#1a1209" stroke-width="2"/>
+  <path d="M62,62 L62,46 M62,62 L50,50" fill="none" stroke="#1a1209" stroke-width="2"/>
+  <!-- Lily pad 1 vein lines -->
+  <path d="M62,62 Q74,54 82,62" fill="none" stroke="#3d7230" stroke-width="1.5"/>
+  <path d="M62,62 Q62,52 68,50" fill="none" stroke="#3d7230" stroke-width="1"/>
+
+  <!-- Lily pad 2 (center) -->
+  <ellipse cx="112" cy="74" rx="22" ry="14" fill="#5aa840" stroke="#1a1209" stroke-width="2"/>
+  <path d="M112,74 L112,60" fill="none" stroke="#1a1209" stroke-width="2"/>
+  <path d="M112,74 Q124,68 130,74" fill="none" stroke="#3d7230" stroke-width="1.5"/>
+  <path d="M112,74 Q100,68 94,74"  fill="none" stroke="#3d7230" stroke-width="1.5"/>
+
+  <!-- Lily pad 3 (right, partial) -->
+  <ellipse cx="168" cy="60" rx="18" ry="12" fill="#4d8c3a" stroke="#1a1209" stroke-width="2"/>
+  <path d="M168,60 L168,48" fill="none" stroke="#1a1209" stroke-width="2"/>
+
+  <!-- Water lily flower on pad 2 -->
+  <circle cx="112" cy="68" r="5" fill="#f5e6c8" stroke="#1a1209" stroke-width="1.5"/>
+  <circle cx="107" cy="66" r="4" fill="#f0d4b0" stroke="#1a1209" stroke-width="1"/>
+  <circle cx="117" cy="66" r="4" fill="#f0d4b0" stroke="#1a1209" stroke-width="1"/>
+  <circle cx="112" cy="62" r="4" fill="#f0d4b0" stroke="#1a1209" stroke-width="1"/>
+  <!-- Flower center -->
+  <circle cx="112" cy="67" r="3" fill="#e8c040" stroke="#1a1209" stroke-width="1.5"/>
+
+  <!-- Floating pebbles / rocks -->
+  <ellipse cx="38"  cy="72" rx="8"  ry="5" fill="#9a9888" stroke="#1a1209" stroke-width="2"/>
+  <ellipse cx="190" cy="80" rx="10" ry="6" fill="#9a9888" stroke="#1a1209" stroke-width="2"/>
+  <ellipse cx="85"  cy="88" rx="6"  ry="4" fill="#9a9888" stroke="#1a1209" stroke-width="1.5"/>
+
+  <!-- Grass tufts around pond edge -->
+  <path d="M8,72  Q4,60 0,58   Q6,68 4,76 Z"  fill="#5c9e3a" stroke="#1a1209" stroke-width="1.5"/>
+  <path d="M14,66 Q12,54 10,50 Q16,62 18,70 Z" fill="#5c9e3a" stroke="#1a1209" stroke-width="1.5"/>
+  <path d="M206,72 Q210,60 214,58 Q208,68 210,76 Z" fill="#5c9e3a" stroke="#1a1209" stroke-width="1.5"/>
+</svg>
