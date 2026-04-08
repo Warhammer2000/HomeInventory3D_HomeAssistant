@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Plus+Jakarta+Sans:wght@400;500;600&family=Space+Mono&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Nunito", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-cream: #FAF7F2;
+  --color-surface: #FFFFFF;
+  --color-surface-secondary: #F0EEFF;
+  
+  --color-text-primary: #2D2A32;
+  --color-text-secondary: #8C8594;
+  
+  --color-accent: #4F46E5;
+  --color-success: #22C55E;
+  --color-danger: #EF4444;
+
+  --color-coral: #FF6B7A;
+  --color-sunflower: #FFD43B;
+  --color-mint: #51E2A2;
+  --color-sky: #5BB8FF;
+  --color-violet: #9B8AFB;
+  --color-orange: #FF9F43;
+  --color-bubblegum: #FF78C4;
+  --color-teal: #38D9C4;
+
+  --shadow-soft: 0 12px 32px -4px rgba(45, 42, 50, 0.08), 0 4px 12px -2px rgba(45, 42, 50, 0.04);
+  --shadow-soft-hover: 0 20px 40px -4px rgba(45, 42, 50, 0.12), 0 8px 16px -2px rgba(45, 42, 50, 0.06);
+}
+
+@layer base {
+  body {
+    @apply bg-cream text-text-primary font-sans antialiased;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+}
+
+@layer utilities {
+  .squircle {
+    border-radius: 22%;
+  }
+  .squircle-sm {
+    border-radius: 18%;
+  }
+  .squircle-lg {
+    border-radius: 26%;
+  }
+  
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
