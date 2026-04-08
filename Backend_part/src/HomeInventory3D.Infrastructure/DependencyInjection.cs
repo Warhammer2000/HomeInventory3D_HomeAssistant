@@ -4,6 +4,7 @@ using HomeInventory3D.Infrastructure.BackgroundJobs;
 using HomeInventory3D.Infrastructure.Persistence;
 using HomeInventory3D.Infrastructure.Persistence.Repositories;
 using HomeInventory3D.Infrastructure.Storage;
+using HomeInventory3D.Infrastructure.Mesh;
 using HomeInventory3D.Infrastructure.Vision;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -35,6 +36,11 @@ public static class DependencyInjection
         // Claude Vision
         services.Configure<ClaudeOptions>(configuration.GetSection(ClaudeOptions.SectionName));
         services.AddHttpClient<IVisionRecognitionService, ClaudeVisionService>();
+
+        // Mesh processing pipeline
+        services.AddScoped<IMeshProcessingService, AssimpMeshProcessingService>();
+        services.AddScoped<IGlbExportService, SharpGltfExportService>();
+        services.AddScoped<IThumbnailService, ImageSharpThumbnailService>();
 
         // Background processing
         services.AddSingleton<IScanProcessingChannel, ScanProcessingChannel>();

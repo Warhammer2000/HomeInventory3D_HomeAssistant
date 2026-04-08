@@ -3,14 +3,16 @@ using HomeInventory3D.Application.DTOs;
 using HomeInventory3D.Application.Interfaces;
 using HomeInventory3D.Domain.Entities;
 using HomeInventory3D.Domain.Enums;
+using HomeInventory3D.Infrastructure.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace HomeInventory3D.Infrastructure.BackgroundJobs;
 
 /// <summary>
-/// Background worker that processes 3D scan files from the queue.
+/// Background worker that processes 3D scan files: parse → segment → export → recognize → notify.
 /// </summary>
 public class ScanProcessingWorker(
     IScanProcessingChannel channel,
@@ -38,11 +40,19 @@ public class ScanProcessingWorker(
     private async Task ProcessScanAsync(ScanProcessingRequest request, CancellationToken ct)
     {
         await using var scope = scopeFactory.CreateAsyncScope();
+
         var scanRepo = scope.ServiceProvider.GetRequiredService<IScanSessionRepository>();
         var itemRepo = scope.ServiceProvider.GetRequiredService<IItemRepository>();
+        var containerRepo = scope.ServiceProvider.GetRequiredService<IContainerRepository>();
         var fileStorage = scope.ServiceProvider.GetRequiredService<IFileStorageService>();
         var notifications = scope.ServiceProvider.GetRequiredService<IInventoryNotificationService>();
+        var meshProcessor = scope.ServiceProvider.GetRequiredService<IMeshProcessingService>();
+        var glbExporter = scope.ServiceProvider.GetRequiredService<IGlbExportService>();
+        var thumbnailService = scope.ServiceProvider.GetRequiredService<IThumbnailService>();
+        var visionService = scope.ServiceProvider.GetRequiredService<IVisionRecognitionService>();
+        var storageOptions = scope.ServiceProvider.GetRequiredService<IOptions<StorageOptions>>();
 
+        // Step 1: Load session
         var session = await scanRepo.GetByIdAsync(request.ScanSessionId, ct);
         if (session is null)
         {
@@ -54,24 +64,188 @@ public class ScanProcessingWorker(
         await scanRepo.UpdateAsync(session, ct);
 
         await notifications.NotifyScanProgressAsync(
-            session.Id, session.ContainerId, 10, "Uploading", ct);
+            session.Id, session.ContainerId, 10, "Validating", ct);
 
-        // Phase: Parse 3D file
+        // Step 2: Validate file
+        var fullPath = Path.Combine(storageOptions.Value.BasePath, session.PointCloudPath!);
+        if (!File.Exists(fullPath))
+            throw new FileNotFoundException("Scan file not found on disk", fullPath);
+
         await notifications.NotifyScanProgressAsync(
-            session.Id, session.ContainerId, 30, "Parsing 3D file", ct);
+            session.Id, session.ContainerId, 15, "Validated", ct);
 
-        // TODO: AssimpNet parsing will be implemented in Phase 2
-        // For now, mark as completed with zero items
-        logger.LogInformation("Scan {ScanId}: 3D parsing pipeline not yet implemented", session.Id);
+        // Step 3: Parse 3D file
+        var result = await meshProcessor.ProcessFileAsync(fullPath, ct);
 
+        if (result.Meshes.Count == 0)
+        {
+            logger.LogWarning("No meshes found in scan {ScanId}", session.Id);
+            session.Status = ScanStatus.Completed;
+            session.ItemsDetected = 0;
+            await scanRepo.UpdateAsync(session, ct);
+            await notifications.NotifyScanCompletedAsync(session.Id, session.ContainerId, 0, 0, 0, ct);
+            return;
+        }
+
+        await notifications.NotifyScanProgressAsync(
+            session.Id, session.ContainerId, 30, $"Parsed {result.Meshes.Count} objects", ct);
+
+        // Load container for Vision context
+        var container = await containerRepo.GetByIdAsync(session.ContainerId, ct);
+
+        // Step 4: Process each mesh
+        var itemsDetected = result.Meshes.Count;
+        var itemsAdded = 0;
+        var failedItems = new List<string>();
+
+        for (var i = 0; i < result.Meshes.Count; i++)
+        {
+            var meshData = result.Meshes[i];
+
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                var itemId = Guid.CreateVersion7();
+
+                // 4a: Normalize positions to [0,1]
+                var bounds = result.SceneBounds;
+                var normCenterX = (meshData.CenterX - bounds.MinX) / bounds.SizeX;
+                var normCenterY = (meshData.CenterY - bounds.MinY) / bounds.SizeY;
+                var normCenterZ = (meshData.CenterZ - bounds.MinZ) / bounds.SizeZ;
+                var normBboxMinX = (meshData.BboxMinX - bounds.MinX) / bounds.SizeX;
+                var normBboxMinY = (meshData.BboxMinY - bounds.MinY) / bounds.SizeY;
+                var normBboxMinZ = (meshData.BboxMinZ - bounds.MinZ) / bounds.SizeZ;
+                var normBboxMaxX = (meshData.BboxMaxX - bounds.MinX) / bounds.SizeX;
+                var normBboxMaxY = (meshData.BboxMaxY - bounds.MinY) / bounds.SizeY;
+                var normBboxMaxZ = (meshData.BboxMaxZ - bounds.MinZ) / bounds.SizeZ;
+
+                // 4b: Export individual mesh as GLB
+                await using var glbStream = await glbExporter.ExportMeshAsync(
+                    meshData.Vertices, meshData.Indices, meshData.Name, ct);
+                var glbPath = await fileStorage.SaveAsync(
+                    glbStream, $"meshes/{session.ContainerId}", $"{itemId}.glb", ct);
+
+                // 4c: Render thumbnail
+                await using var thumbStream = await thumbnailService.RenderTopDownAsync(
+                    meshData.Vertices, meshData.Indices, 256, 256, ct);
+                var thumbPath = await fileStorage.SaveAsync(
+                    thumbStream, $"thumbnails/{session.ContainerId}", $"{itemId}.png", ct);
+
+                // 4d: Claude Vision recognition
+                var label = await RecognizeWithFallbackAsync(
+                    visionService, fileStorage, thumbPath, container?.Name, i, ct);
+
+                // 4e: Create InventoryItem
+                var now = DateTime.UtcNow;
+                var item = new InventoryItem
+                {
+                    Id = itemId,
+                    ContainerId = session.ContainerId,
+                    Name = label.Name,
+                    Tags = label.Tags,
+                    Description = label.Description,
+                    PositionX = normCenterX,
+                    PositionY = normCenterY,
+                    PositionZ = normCenterZ,
+                    BboxMinX = normBboxMinX,
+                    BboxMinY = normBboxMinY,
+                    BboxMinZ = normBboxMinZ,
+                    BboxMaxX = normBboxMaxX,
+                    BboxMaxY = normBboxMaxY,
+                    BboxMaxZ = normBboxMaxZ,
+                    MeshFilePath = glbPath,
+                    ThumbnailPath = thumbPath,
+                    Confidence = label.Confidence,
+                    RecognitionSource = RecognitionSource.ClaudeVision,
+                    Status = ItemStatus.Present,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+
+                await itemRepo.AddAsync(item, ct);
+
+                // 4f: SignalR notification IMMEDIATELY
+                var addedDto = new ItemAddedDto(
+                    item.Id, item.ContainerId, item.Name, item.Tags,
+                    item.PositionX, item.PositionY, item.PositionZ,
+                    item.RotationX, item.RotationY, item.RotationZ,
+                    item.BboxMinX, item.BboxMinY, item.BboxMinZ,
+                    item.BboxMaxX, item.BboxMaxY, item.BboxMaxZ,
+                    fileStorage.GetUrl(glbPath),
+                    fileStorage.GetUrl(thumbPath),
+                    item.Confidence);
+
+                await notifications.NotifyItemAddedAsync(addedDto, ct);
+
+                itemsAdded++;
+
+                var progressPercent = 30 + (int)(60.0 * (i + 1) / result.Meshes.Count);
+                await notifications.NotifyScanProgressAsync(
+                    session.Id, session.ContainerId, progressPercent,
+                    $"Recognized: {item.Name}", ct);
+
+                logger.LogInformation("Scan {ScanId}: item {Index}/{Total} — {Name} (confidence: {Confidence:P0})",
+                    session.Id, i + 1, result.Meshes.Count, item.Name, item.Confidence);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to process mesh {MeshName} in scan {ScanId}",
+                    meshData.Name, session.Id);
+                failedItems.Add(meshData.Name);
+            }
+        }
+
+        // Step 5: Finalize session
         session.Status = ScanStatus.Completed;
-        session.ItemsDetected = 0;
-        session.ItemsAdded = 0;
+        session.ItemsDetected = itemsDetected;
+        session.ItemsAdded = itemsAdded;
         session.ItemsRemoved = 0;
+
+        if (failedItems.Count > 0)
+            session.ErrorMessage = $"Partial: {failedItems.Count} mesh(es) failed — {string.Join(", ", failedItems)}";
+
         await scanRepo.UpdateAsync(session, ct);
 
         await notifications.NotifyScanCompletedAsync(
-            session.Id, session.ContainerId, 0, 0, 0, ct);
+            session.Id, session.ContainerId,
+            itemsDetected, itemsAdded, 0, ct);
+
+        logger.LogInformation("Scan {ScanId} completed: {Detected} detected, {Added} added, {Failed} failed",
+            session.Id, itemsDetected, itemsAdded, failedItems.Count);
+    }
+
+    private async Task<RecognizedItemDto> RecognizeWithFallbackAsync(
+        IVisionRecognitionService visionService,
+        IFileStorageService fileStorage,
+        string thumbnailPath,
+        string? containerName,
+        int meshIndex,
+        CancellationToken ct)
+    {
+        try
+        {
+            var fullThumbPath = thumbnailPath;
+            // Read the saved thumbnail for Vision API
+            await using var thumbFile = File.OpenRead(
+                Path.IsPathRooted(fullThumbPath)
+                    ? fullThumbPath
+                    : Path.Combine(
+                        scopeFactory.CreateScope().ServiceProvider
+                            .GetRequiredService<IOptions<StorageOptions>>().Value.BasePath,
+                        fullThumbPath));
+
+            var results = await visionService.RecognizeItemsAsync(thumbFile, containerName, ct);
+            if (results.Count > 0)
+                return results[0];
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Vision recognition failed for mesh {Index}, using fallback", meshIndex);
+        }
+
+        return new RecognizedItemDto($"Object {meshIndex + 1}", [], null, 0f, null, null, null, null, null, null);
     }
 
     private async Task TryMarkFailedAsync(Guid scanId, string error, CancellationToken ct)
