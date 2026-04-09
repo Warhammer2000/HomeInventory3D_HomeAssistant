@@ -70,29 +70,29 @@ namespace HomeInventory3D.Networking
 
     /// <summary>
     /// SignalR event: item added during scan.
+    /// Uses properties (not fields) because SignalR .NET client deserializes via System.Text.Json.
     /// </summary>
-    [Serializable]
     public class ItemAddedEvent
     {
-        public string id;
-        public string containerId;
-        public string name;
-        public string[] tags;
-        public float? positionX;
-        public float? positionY;
-        public float? positionZ;
-        public float? rotationX;
-        public float? rotationY;
-        public float? rotationZ;
-        public float? bboxMinX;
-        public float? bboxMinY;
-        public float? bboxMinZ;
-        public float? bboxMaxX;
-        public float? bboxMaxY;
-        public float? bboxMaxZ;
-        public string meshUrl;
-        public string thumbnailUrl;
-        public float? confidence;
+        public string id { get; set; }
+        public string containerId { get; set; }
+        public string name { get; set; }
+        public string[] tags { get; set; }
+        public float? positionX { get; set; }
+        public float? positionY { get; set; }
+        public float? positionZ { get; set; }
+        public float? rotationX { get; set; }
+        public float? rotationY { get; set; }
+        public float? rotationZ { get; set; }
+        public float? bboxMinX { get; set; }
+        public float? bboxMinY { get; set; }
+        public float? bboxMinZ { get; set; }
+        public float? bboxMaxX { get; set; }
+        public float? bboxMaxY { get; set; }
+        public float? bboxMaxZ { get; set; }
+        public string meshUrl { get; set; }
+        public string thumbnailUrl { get; set; }
+        public float? confidence { get; set; }
     }
 
     /// <summary>

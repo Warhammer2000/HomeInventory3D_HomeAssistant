@@ -2,6 +2,15 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 WORKDIR /app
 EXPOSE 8080
 
+# Install native Assimp library + create libdl.so symlink
+# (AssimpNet 4.1.0 calls dlopen via libdl.so which was merged into libc in newer glibc)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libassimp-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/lib/x86_64-linux-gnu/libdl.so.2 /usr/lib/x86_64-linux-gnu/libdl.so \
+    || ln -sf $(find / -name 'libdl.so*' -type f 2>/dev/null | head -1) /usr/lib/libdl.so \
+    || true
+
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY ["src/HomeInventory3D.Api/HomeInventory3D.Api.csproj", "src/HomeInventory3D.Api/"]

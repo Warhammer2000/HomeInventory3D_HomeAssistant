@@ -1,11 +1,26 @@
-import {ChangeDetectionStrategy, Component, signal} from '@angular/core';
+import {ChangeDetectionStrategy, Component, inject, signal} from '@angular/core';
 import {NgStyle} from '@angular/common';
 import {MatIconModule} from '@angular/material/icon';
+import {RouterLink} from '@angular/router';
+import {ItemService} from '../services/item.service';
+import {ItemDto} from '../models/item.model';
+import {Subject} from 'rxjs';
+import {debounceTime, distinctUntilChanged, switchMap, of, catchError} from 'rxjs';
+
+interface SearchGroup {
+  containerId: string;
+  containerName: string;
+  location: string;
+  color: string;
+  items: ItemDto[];
+}
+
+const COLORS = ['#FF6B7A', '#5BB8FF', '#51E2A2', '#FFD43B', '#9B8AFB', '#FF9F43'];
 
 @Component({
   selector: 'app-search',
   standalone: true,
-  imports: [NgStyle, MatIconModule],
+  imports: [NgStyle, MatIconModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="p-6 md:p-10 max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -14,15 +29,18 @@ import {MatIconModule} from '@angular/material/icon';
         <div class="absolute inset-y-0 left-6 flex items-center pointer-events-none text-text-secondary group-focus-within:text-accent transition-colors">
           <mat-icon class="text-3xl w-8 h-8 flex items-center justify-center">search</mat-icon>
         </div>
-        <input type="text" 
+        <input type="text"
                [value]="searchQuery()"
                (input)="onSearch($event)"
                class="w-full h-20 pl-16 pr-6 bg-surface rounded-[24px] text-xl font-heading font-bold text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:ring-4 focus:ring-accent/10 shadow-soft transition-all"
                placeholder="Найти предмет...">
       </div>
 
-      @if (searchQuery().length === 0) {
-        <!-- Empty State / Recent -->
+      @if (loading()) {
+        <div class="flex justify-center py-10">
+          <div class="w-8 h-8 border-4 border-accent/20 border-t-accent rounded-full animate-spin"></div>
+        </div>
+      } @else if (searchQuery().length === 0) {
         <div class="animate-in fade-in duration-300">
           <h3 class="text-text-secondary font-bold mb-4">Недавние запросы</h3>
           <div class="flex flex-wrap gap-2 mb-12">
@@ -42,15 +60,15 @@ import {MatIconModule} from '@angular/material/icon';
           </div>
         </div>
       } @else {
-        <!-- Results -->
         <div class="animate-in slide-in-from-bottom-4 fade-in duration-300">
-          @for (group of results(); track group.containerName) {
+          @for (group of results(); track group.containerId) {
             <div class="mb-8">
-              <div class="flex items-center gap-2 mb-4 px-2">
+              <a [routerLink]="['/container', group.containerId]"
+                 class="flex items-center gap-2 mb-4 px-2 hover:opacity-80 transition-opacity">
                 <div class="w-3 h-3 rounded-full" [ngStyle]="{'background-color': group.color}"></div>
                 <h3 class="font-bold text-text-secondary">{{group.containerName}}</h3>
                 <span class="text-xs text-text-secondary/60 ml-auto">{{group.location}}</span>
-              </div>
+              </a>
 
               <div class="flex flex-col gap-3">
                 @for (item of group.items; track item.id) {
@@ -59,12 +77,9 @@ import {MatIconModule} from '@angular/material/icon';
                          [ngStyle]="{'background-color': group.color}">
                       {{item.name.charAt(0)}}
                     </div>
-                    
+
                     <div class="flex-1 min-w-0">
-                      <!-- Highlighted name -->
-                      <h4 class="font-semibold text-text-primary truncate mb-1">
-                        <span class="bg-sunflower/30 px-1 rounded">{{item.name.substring(0, searchQuery().length)}}</span>{{item.name.substring(searchQuery().length)}}
-                      </h4>
+                      <h4 class="font-semibold text-text-primary truncate mb-1">{{item.name}}</h4>
                       <div class="flex flex-wrap gap-1.5">
                         @for (tag of item.tags; track tag) {
                           <span class="px-2 py-0.5 text-[10px] font-bold rounded-full"
@@ -74,15 +89,15 @@ import {MatIconModule} from '@angular/material/icon';
                         }
                       </div>
                     </div>
-                    
+
                     <mat-icon class="text-text-secondary">chevron_right</mat-icon>
                   </div>
                 }
               </div>
             </div>
           }
-          
-          @if (results().length === 0) {
+
+          @if (results().length === 0 && searchQuery().length > 0) {
             <div class="flex flex-col items-center justify-center text-center mt-20">
               <div class="w-32 h-32 squircle bg-surface flex items-center justify-center mb-6 shadow-sm">
                 <mat-icon class="text-6xl w-16 h-16 flex items-center justify-center text-text-secondary">question_mark</mat-icon>
@@ -97,53 +112,76 @@ import {MatIconModule} from '@angular/material/icon';
   `
 })
 export class SearchComponent {
+  private itemService = inject(ItemService);
+
   searchQuery = signal('');
-  recentSearches = ['отвёртка', 'кабель USB', 'ключ на 10', 'изолента'];
+  results = signal<SearchGroup[]>([]);
+  loading = signal(false);
+  recentSearches = ['отвёртка', 'кабель USB', 'ключ', 'изолента'];
 
-  allData = [
-    {
-      containerName: 'Ящик с инструментами',
-      location: 'Гараж, полка 2',
-      color: '#FF6B7A',
-      items: [
-        { id: '1', name: 'Крестовая отвёртка PH2', tags: ['инструмент', 'отвёртка'] },
-        { id: '2', name: 'Разводной ключ 250мм', tags: ['инструмент', 'ключ'] },
-      ]
-    },
-    {
-      containerName: 'Коробка электроники',
-      location: 'Кабинет, шкаф',
-      color: '#5BB8FF',
-      items: [
-        { id: '3', name: 'USB-C переходник', tags: ['электроника', 'кабель'] },
-      ]
-    }
-  ];
+  private searchSubject = new Subject<string>();
+  private colorMap = new Map<string, string>();
+  private colorIndex = 0;
 
-  results = signal<any[]>([]);
+  constructor() {
+    this.searchSubject.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+      switchMap(query => {
+        if (!query || query.length < 2) {
+          this.results.set([]);
+          this.loading.set(false);
+          return of([]);
+        }
+        this.loading.set(true);
+        return this.itemService.search(query).pipe(
+          catchError(() => {
+            this.loading.set(false);
+            return of([]);
+          })
+        );
+      })
+    ).subscribe(items => {
+      this.loading.set(false);
+      this.groupByContainer(items);
+    });
+  }
 
   onSearch(event: Event) {
     const query = (event.target as HTMLInputElement).value;
-    this.setSearch(query);
+    this.searchQuery.set(query);
+    this.searchSubject.next(query);
   }
 
   setSearch(query: string) {
     this.searchQuery.set(query);
-    
-    if (!query) {
-      this.results.set([]);
-      return;
+    this.searchSubject.next(query);
+  }
+
+  private groupByContainer(items: ItemDto[]) {
+    const groups = new Map<string, SearchGroup>();
+
+    for (const item of items) {
+      if (!groups.has(item.containerId)) {
+        groups.set(item.containerId, {
+          containerId: item.containerId,
+          containerName: `Container`,
+          location: '',
+          color: this.getContainerColor(item.containerId),
+          items: []
+        });
+      }
+      groups.get(item.containerId)!.items.push(item);
     }
 
-    const lowerQuery = query.toLowerCase();
-    const filtered = this.allData.map(group => {
-      const matchedItems = group.items.filter(item => 
-        item.name.toLowerCase().includes(lowerQuery) || 
-        item.tags.some(t => t.toLowerCase().includes(lowerQuery))
-      );
-      return { ...group, items: matchedItems };
-    }).filter(group => group.items.length > 0);
+    this.results.set(Array.from(groups.values()));
+  }
 
-    this.results.set(filtered);
+  private getContainerColor(containerId: string): string {
+    if (!this.colorMap.has(containerId)) {
+      this.colorMap.set(containerId, COLORS[this.colorIndex % COLORS.length]);
+      this.colorIndex++;
+    }
+    return this.colorMap.get(containerId)!;
   }
 }

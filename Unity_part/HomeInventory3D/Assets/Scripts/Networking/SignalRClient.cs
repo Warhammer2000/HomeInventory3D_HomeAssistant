@@ -10,7 +10,6 @@ namespace HomeInventory3D.Networking
 {
     /// <summary>
     /// SignalR client for real-time inventory updates.
-    /// Requires SignalR NuGet package. Define HAS_SIGNALR scripting symbol after installing.
     /// </summary>
     public class SignalRClient : MonoBehaviour
     {
@@ -18,24 +17,16 @@ namespace HomeInventory3D.Networking
 
 #if HAS_SIGNALR
         private HubConnection _connection;
+        private TaskCompletionSource<bool> _connectTcs;
+        private bool _isSetup;
 #endif
 
-        /// <summary>Fired when a new item is added during scan processing.</summary>
         public event Action<ItemAddedEvent> OnItemAdded;
-
-        /// <summary>Fired on scan progress updates.</summary>
         public event Action<string, string, int, string> OnScanProgress;
-
-        /// <summary>Fired when scan completes.</summary>
         public event Action<string, string, int, int, int> OnScanCompleted;
-
-        /// <summary>Fired when an item is removed.</summary>
         public event Action<string, string> OnItemRemoved;
-
-        /// <summary>Fired when a scan fails.</summary>
         public event Action<string, string> OnScanFailed;
 
-        /// <summary>Whether the connection is active.</summary>
         public bool IsConnected =>
 #if HAS_SIGNALR
             _connection?.State == HubConnectionState.Connected;
@@ -43,89 +34,103 @@ namespace HomeInventory3D.Networking
             false;
 #endif
 
-        private async void Start()
-        {
-            if (apiConfig == null)
-                apiConfig = ApiConfig.Instance;
-
-            await ConnectAsync();
-        }
-
         /// <summary>
-        /// Establishes the SignalR connection and registers event handlers.
+        /// Connects to SignalR hub. If already connecting, waits for the result.
+        /// Safe to call multiple times — will await the same connection attempt.
         /// </summary>
         public async Task ConnectAsync()
         {
 #if HAS_SIGNALR
-            if (_connection != null)
+            if (apiConfig == null)
+                apiConfig = ApiConfig.Instance;
+
+            // Already connected
+            if (_connection?.State == HubConnectionState.Connected)
                 return;
 
-            _connection = new HubConnectionBuilder()
-                .WithUrl(apiConfig.HubUrl)
-                .WithAutomaticReconnect()
-                .Build();
-
-            _connection.On<ItemAddedEvent>("ItemAdded", item =>
+            // Already connecting — wait for it
+            if (_connectTcs != null && !_connectTcs.Task.IsCompleted)
             {
-                UnityMainThread.Enqueue(() => OnItemAdded?.Invoke(item));
-            });
+                await _connectTcs.Task;
+                return;
+            }
 
-            _connection.On<string, string, int, string>("ScanProgress", (scanId, containerId, progress, stage) =>
-            {
-                UnityMainThread.Enqueue(() => OnScanProgress?.Invoke(scanId, containerId, progress, stage));
-            });
+            _connectTcs = new TaskCompletionSource<bool>();
 
-            _connection.On<string, string, int, int, int>("ScanCompleted", (scanId, containerId, detected, added, removed) =>
+            if (!_isSetup)
             {
-                UnityMainThread.Enqueue(() => OnScanCompleted?.Invoke(scanId, containerId, detected, added, removed));
-            });
+                _connection = new HubConnectionBuilder()
+                    .WithUrl(apiConfig.HubUrl)
+                    .WithAutomaticReconnect(new[] { TimeSpan.Zero, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(30) })
+                    .Build();
 
-            _connection.On<string, string>("ItemRemoved", (itemId, containerId) =>
-            {
-                UnityMainThread.Enqueue(() => OnItemRemoved?.Invoke(itemId, containerId));
-            });
+                // Keep connection alive indefinitely
+                _connection.KeepAliveInterval = TimeSpan.FromSeconds(15);
+                _connection.ServerTimeout = TimeSpan.FromSeconds(60);
 
-            _connection.On<string, string>("ScanFailed", (scanId, errorMessage) =>
-            {
-                UnityMainThread.Enqueue(() => OnScanFailed?.Invoke(scanId, errorMessage));
-            });
+                _connection.On<ItemAddedEvent>("ItemAdded", item =>
+                {
+                    UnityMainThread.Enqueue(() => OnItemAdded?.Invoke(item));
+                });
 
-            _connection.Reconnecting += error =>
-            {
-                Debug.LogWarning($"SignalR reconnecting: {error?.Message}");
-                return Task.CompletedTask;
-            };
+                _connection.On<string, string, int, string>("ScanProgress", (scanId, containerId, progress, stage) =>
+                {
+                    UnityMainThread.Enqueue(() => OnScanProgress?.Invoke(scanId, containerId, progress, stage));
+                });
 
-            _connection.Reconnected += connectionId =>
-            {
-                Debug.Log($"SignalR reconnected: {connectionId}");
-                return Task.CompletedTask;
-            };
+                _connection.On<string, string, int, int, int>("ScanCompleted", (scanId, containerId, detected, added, removed) =>
+                {
+                    UnityMainThread.Enqueue(() => OnScanCompleted?.Invoke(scanId, containerId, detected, added, removed));
+                });
 
-            _connection.Closed += error =>
-            {
-                Debug.LogWarning($"SignalR connection closed: {error?.Message}");
-                return Task.CompletedTask;
-            };
+                _connection.On<string, string>("ItemRemoved", (itemId, containerId) =>
+                {
+                    UnityMainThread.Enqueue(() => OnItemRemoved?.Invoke(itemId, containerId));
+                });
+
+                _connection.On<string, string>("ScanFailed", (scanId, errorMessage) =>
+                {
+                    UnityMainThread.Enqueue(() => OnScanFailed?.Invoke(scanId, errorMessage));
+                });
+
+                _connection.Reconnecting += error =>
+                {
+                    Debug.LogWarning($"SignalR reconnecting: {error?.Message}");
+                    return Task.CompletedTask;
+                };
+
+                _connection.Reconnected += connectionId =>
+                {
+                    Debug.Log($"SignalR reconnected: {connectionId}");
+                    return Task.CompletedTask;
+                };
+
+                _connection.Closed += error =>
+                {
+                    Debug.LogWarning($"SignalR connection closed: {error?.Message}");
+                    return Task.CompletedTask;
+                };
+
+                _isSetup = true;
+            }
 
             try
             {
                 await _connection.StartAsync();
                 Debug.Log("SignalR connected successfully");
+                _connectTcs.TrySetResult(true);
             }
             catch (Exception ex)
             {
                 Debug.LogError($"SignalR connection failed: {ex.Message}");
+                _connectTcs.TrySetResult(false);
             }
 #else
-            Debug.LogWarning("SignalR not available. Install Microsoft.AspNetCore.SignalR.Client via NuGet and add HAS_SIGNALR to Scripting Define Symbols.");
+            Debug.LogWarning("SignalR not available.");
             await Task.CompletedTask;
 #endif
         }
 
-        /// <summary>
-        /// Joins a container's real-time update group.
-        /// </summary>
         public async Task JoinContainerAsync(Guid containerId)
         {
 #if HAS_SIGNALR
@@ -142,16 +147,16 @@ namespace HomeInventory3D.Networking
 #endif
         }
 
-        /// <summary>
-        /// Leaves a container's real-time update group.
-        /// </summary>
         public async Task LeaveContainerAsync(Guid containerId)
         {
 #if HAS_SIGNALR
-            if (!IsConnected) return;
-
-            await _connection.InvokeAsync("LeaveContainer", containerId);
-            Debug.Log($"Left container group: {containerId}");
+            try
+            {
+                if (_connection?.State == HubConnectionState.Connected)
+                    await _connection.InvokeAsync("LeaveContainer", containerId);
+            }
+            catch (ObjectDisposedException) { }
+            catch (Exception ex) { Debug.LogWarning($"LeaveContainer error: {ex.Message}"); }
 #else
             await Task.CompletedTask;
 #endif
@@ -160,11 +165,15 @@ namespace HomeInventory3D.Networking
         private async void OnDestroy()
         {
 #if HAS_SIGNALR
-            if (_connection != null)
+            try
             {
-                await _connection.DisposeAsync();
-                _connection = null;
+                if (_connection != null)
+                {
+                    await _connection.DisposeAsync();
+                    _connection = null;
+                }
             }
+            catch (Exception) { }
 #else
             await Task.CompletedTask;
 #endif

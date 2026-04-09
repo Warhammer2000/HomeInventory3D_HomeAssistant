@@ -7,5 +7,6 @@ public enum ScanType
 {
     Manual,
     Lidar,
-    Automatic
+    Automatic,
+    Photo
 }

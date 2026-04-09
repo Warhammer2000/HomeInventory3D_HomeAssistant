@@ -103,9 +103,8 @@ namespace HomeInventory3D.Scene
 
             try
             {
-                var url = meshUrl;
-                if (!url.StartsWith("http"))
-                    url = $"{_apiClient.BaseUrl}/{url.TrimStart('/')}";
+                var url = ResolveFileUrl(meshUrl);
+                Debug.Log($"Loading GLB from: {url}");
 
                 var gltf = new GltfImport();
                 var success = await gltf.Load(url);
@@ -135,6 +134,31 @@ namespace HomeInventory3D.Scene
             {
                 Debug.LogError($"GLB load error for {meshUrl}: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Resolves a mesh/file URL to a full HTTP URL pointing at the backend /files/ endpoint.
+        /// Handles: full URLs (rewrite to backend), relative paths (prepend backend + /files/).
+        /// </summary>
+        private string ResolveFileUrl(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return path;
+
+            // If it's already a full URL, rewrite host to our backend
+            if (path.StartsWith("http"))
+            {
+                // Extract the path part after /files/
+                var filesIndex = path.IndexOf("/files/");
+                if (filesIndex >= 0)
+                {
+                    var relativePart = path[(filesIndex + 7)..]; // after "/files/"
+                    return $"{_apiClient!.BaseUrl}/files/{relativePart}";
+                }
+                return path;
+            }
+
+            // Relative path — prepend backend base URL + /files/
+            return $"{_apiClient!.BaseUrl}/files/{path.TrimStart('/')}";
         }
 
         private static void SetBoundingBoxScale(GameObject obj, ItemDto dto)

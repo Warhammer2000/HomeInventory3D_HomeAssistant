@@ -5,6 +5,7 @@ using HomeInventory3D.Infrastructure.Persistence;
 using HomeInventory3D.Infrastructure.Persistence.Repositories;
 using HomeInventory3D.Infrastructure.Storage;
 using HomeInventory3D.Infrastructure.Mesh;
+using HomeInventory3D.Infrastructure.Meshy;
 using HomeInventory3D.Infrastructure.Vision;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -36,6 +37,10 @@ public static class DependencyInjection
         // Claude Vision
         services.Configure<ClaudeOptions>(configuration.GetSection(ClaudeOptions.SectionName));
         services.AddHttpClient<IVisionRecognitionService, ClaudeVisionService>();
+
+        // Meshy AI Image-to-3D
+        services.Configure<MeshyOptions>(configuration.GetSection(MeshyOptions.SectionName));
+        services.AddHttpClient<IImageTo3DService, MeshyImageTo3DService>();
 
         // Mesh processing pipeline
         services.AddScoped<IMeshProcessingService, AssimpMeshProcessingService>();

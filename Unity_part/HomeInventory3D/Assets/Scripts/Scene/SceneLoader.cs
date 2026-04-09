@@ -80,9 +80,23 @@ namespace HomeInventory3D.Scene
                 }
 
                 // Join SignalR group for real-time updates
-                if (signalRClient != null && signalRClient.IsConnected)
+                if (signalRClient != null)
                 {
-                    await signalRClient.JoinContainerAsync(containerId);
+                    if (!signalRClient.IsConnected)
+                    {
+                        Debug.Log("Waiting for SignalR connection...");
+                        await signalRClient.ConnectAsync();
+                    }
+
+                    if (signalRClient.IsConnected)
+                    {
+                        await signalRClient.JoinContainerAsync(containerId);
+                        Debug.Log($"Joined container group: {containerId}");
+                    }
+                    else
+                    {
+                        Debug.LogWarning("SignalR still not connected — real-time updates unavailable");
+                    }
                 }
 
                 var itemCount = scene.items?.Length ?? 0;
@@ -98,10 +112,16 @@ namespace HomeInventory3D.Scene
 
         private async void HandleItemAdded(ItemAddedEvent evt)
         {
+            Debug.Log($"SignalR ItemAdded received: {evt.name} for container {evt.containerId} (watching: {_currentContainerId})");
+
             if (evt.containerId != _currentContainerId.ToString())
+            {
+                Debug.LogWarning($"Ignoring ItemAdded — container mismatch: {evt.containerId} != {_currentContainerId}");
                 return;
+            }
 
             await itemSpawner.SpawnItemAsync(evt);
+            Debug.Log($"Item spawned via SignalR: {evt.name}");
         }
 
         private void HandleItemRemoved(string itemId, string containerId)

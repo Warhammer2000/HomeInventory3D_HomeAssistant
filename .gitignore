@@ -28,3 +28,5 @@ Backend_part/src/HomeInventory3D.Api/storage/
 appsettings.*.local.json
 
 # Unity (handled by Unity_part/.gitignore)
+/Unity_part/HomeInventory3D/Assets/LowPolyInterior
+/Unity_part/HomeInventory3D/Assets/ithappy

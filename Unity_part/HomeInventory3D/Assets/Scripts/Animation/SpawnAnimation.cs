@@ -4,14 +4,15 @@ using UnityEngine;
 namespace HomeInventory3D.Animation
 {
     /// <summary>
-    /// Scale-up + glow effect for newly spawned items.
+    /// Scale-up + glow + particle burst for newly spawned items.
     /// </summary>
     public static class SpawnAnimation
     {
-        private const float Duration = 0.6f;
+        private const float Duration = 0.8f;
+        private const float BounceOvershoot = 1.15f;
 
         /// <summary>
-        /// Plays spawn animation on a GameObject: scale 0 → 1 with emission glow fade.
+        /// Plays spawn animation: scale 0 → overshoot → 1 with glow fade + optional particle burst.
         /// </summary>
         public static void Play(GameObject target, Material glowMaterial = null)
         {
@@ -24,15 +25,22 @@ namespace HomeInventory3D.Animation
     }
 
     /// <summary>
-    /// MonoBehaviour runner for the spawn coroutine.
-    /// Destroys itself after animation completes.
+    /// MonoBehaviour runner for the spawn coroutine with bounce easing and particle VFX.
     /// </summary>
     public class SpawnAnimationRunner : MonoBehaviour
     {
         private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
+        private static GameObject _vfxPrefab;
+        private static GameObject _ringPrefab;
 
         public void StartAnimation(Material glowMaterial, float duration)
         {
+            // Lazy-load VFX prefabs
+            if (_vfxPrefab == null)
+                _vfxPrefab = Resources.Load<GameObject>("SpawnVFX");
+            if (_ringPrefab == null)
+                _ringPrefab = Resources.Load<GameObject>("SpawnRing");
+
             StartCoroutine(AnimateSpawn(glowMaterial, duration));
         }
 
@@ -40,6 +48,9 @@ namespace HomeInventory3D.Animation
         {
             var targetScale = transform.localScale == Vector3.zero ? Vector3.one : transform.localScale;
             transform.localScale = Vector3.zero;
+
+            // Spawn particle burst at position
+            SpawnVFX(transform.position);
 
             var renderer = GetComponentInChildren<Renderer>();
             Material originalMaterial = null;
@@ -57,14 +68,17 @@ namespace HomeInventory3D.Animation
             while (elapsed < duration)
             {
                 var t = elapsed / duration;
-                var scale = Mathf.SmoothStep(0f, 1f, t);
+
+                // Elastic/bounce easing: overshoot then settle
+                var scale = EaseOutBack(t);
                 transform.localScale = targetScale * scale;
 
+                // Glow fade
                 if (glowInstance != null)
                 {
                     var glowIntensity = 1f - t;
                     var baseColor = glowMaterial.GetColor(EmissionColorId);
-                    glowInstance.SetColor(EmissionColorId, baseColor * glowIntensity);
+                    glowInstance.SetColor(EmissionColorId, baseColor * (glowIntensity * glowIntensity));
                 }
 
                 elapsed += Time.deltaTime;
@@ -84,6 +98,35 @@ namespace HomeInventory3D.Animation
             }
 
             Destroy(this);
+        }
+
+        private void SpawnVFX(Vector3 position)
+        {
+            if (_vfxPrefab != null)
+            {
+                var vfx = Instantiate(_vfxPrefab, position, Quaternion.identity);
+                var ps = vfx.GetComponent<ParticleSystem>();
+                if (ps != null) ps.Play();
+                Destroy(vfx, 2f);
+            }
+
+            if (_ringPrefab != null)
+            {
+                var ring = Instantiate(_ringPrefab, position, Quaternion.identity);
+                var ps = ring.GetComponent<ParticleSystem>();
+                if (ps != null) ps.Play();
+                Destroy(ring, 2f);
+            }
+        }
+
+        /// <summary>
+        /// Ease-out-back: overshoots then settles. Gives a "pop" feel.
+        /// </summary>
+        private static float EaseOutBack(float t)
+        {
+            const float c1 = 1.70158f;
+            const float c3 = c1 + 1f;
+            return 1f + c3 * Mathf.Pow(t - 1f, 3f) + c1 * Mathf.Pow(t - 1f, 2f);
         }
     }
 }

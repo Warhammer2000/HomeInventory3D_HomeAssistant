@@ -7,5 +7,6 @@ public enum RecognitionSource
 {
     ClaudeVision,
     Yolo,
-    Manual
+    Manual,
+    MeshyAI
 }
