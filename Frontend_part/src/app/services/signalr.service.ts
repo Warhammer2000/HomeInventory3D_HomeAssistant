@@ -1,7 +1,7 @@
 import {Injectable, signal} from '@angular/core';
 import * as signalR from '@microsoft/signalr';
 import {environment} from '../../environments/environment';
-import {ItemAddedEvent} from '../models/signalr-events.model';
+import {ItemAddedEvent, ItemProgressEvent} from '../models/signalr-events.model';
 
 @Injectable({providedIn: 'root'})
 export class SignalRService {
@@ -11,6 +11,7 @@ export class SignalRService {
   readonly itemAdded = signal<ItemAddedEvent | null>(null);
   readonly scanCompleted = signal<{scanId: string; containerId: string; detected: number; added: number; removed: number} | null>(null);
   readonly scanFailed = signal<{scanId: string; errorMessage: string} | null>(null);
+  readonly itemProgress = signal<ItemProgressEvent | null>(null);
   readonly isConnected = signal(false);
 
   async connect(): Promise<void> {
@@ -37,8 +38,10 @@ export class SignalRService {
       this.scanFailed.set({scanId, errorMessage});
     });
 
-    this.connection.on('ItemRemoved', (_itemId: string, _containerId: string) => {
-      // handled by container detail component if needed
+    this.connection.on('ItemRemoved', (_itemId: string, _containerId: string) => {});
+
+    this.connection.on('ItemProgress', (scanId: string, itemName: string, index: number, total: number, percent: number, stage: string) => {
+      this.itemProgress.set({scanId, itemName, index, total, percent, stage});
     });
 
     this.connection.onreconnected(() => this.isConnected.set(true));
@@ -53,13 +56,20 @@ export class SignalRService {
   }
 
   async joinContainer(containerId: string): Promise<void> {
-    if (!this.connection) return;
-    await this.connection.invoke('JoinContainer', containerId);
+    try {
+      if (this.connection?.state === signalR.HubConnectionState.Connected) {
+        await this.connection.invoke('JoinContainer', containerId);
+        console.log('Joined container:', containerId);
+      }
+    } catch (e) { console.warn('joinContainer failed:', e); }
   }
 
   async leaveContainer(containerId: string): Promise<void> {
-    if (!this.connection) return;
-    await this.connection.invoke('LeaveContainer', containerId);
+    try {
+      if (this.connection?.state === signalR.HubConnectionState.Connected) {
+        await this.connection.invoke('LeaveContainer', containerId);
+      }
+    } catch (e) { /* ignore on disconnect */ }
   }
 
   async disconnect(): Promise<void> {

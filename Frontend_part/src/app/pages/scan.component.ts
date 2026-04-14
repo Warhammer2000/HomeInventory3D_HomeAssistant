@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, Component, effect, inject, OnDestroy, OnInit, signal} from '@angular/core';
+import {ChangeDetectionStrategy, Component, computed, effect, inject, OnDestroy, OnInit, signal} from '@angular/core';
 import {ActivatedRoute, Router} from '@angular/router';
 import {DecimalPipe, NgStyle} from '@angular/common';
 import {MatIconModule} from '@angular/material/icon';
@@ -113,21 +113,57 @@ import {ItemAddedEvent} from '../models/signalr-events.model';
             }
           </div>
 
-          <p class="text-text-secondary font-medium mb-2 h-6">
-            @if (progress() < 100) {
-              <span class="flex items-center gap-2">{{stage()}}<span class="animate-pulse">...</span></span>
-            } @else {
-              <span class="text-success font-bold text-lg">Готово! {{foundItems().length}} предметов найдено</span>
-            }
-          </p>
-
           @if (errorMessage()) {
             <p class="text-danger font-medium mb-4">{{errorMessage()}}</p>
           }
 
-          <div class="w-full bg-surface rounded-[32px] p-6 shadow-soft min-h-[300px] mt-6">
+          <!-- Per-item Progress Bars -->
+          @if (itemProgressMap().size > 0) {
+            <div class="w-full bg-surface rounded-[24px] p-5 shadow-soft mb-6">
+              <div class="flex items-center gap-2 mb-4">
+                <mat-icon class="text-accent text-[18px] w-[18px] h-[18px]">view_in_ar</mat-icon>
+                <h3 class="font-bold text-text-primary text-sm">3D Generation</h3>
+              </div>
+              <div class="flex flex-col gap-3">
+                @for (entry of itemProgressEntries(); track entry.name) {
+                  <div class="flex flex-col gap-1.5">
+                    <div class="flex items-center justify-between">
+                      <span class="text-sm font-semibold text-text-primary truncate flex-1">{{entry.name}}</span>
+                      <span class="text-xs font-mono ml-2"
+                            [class]="entry.percent >= 100 ? 'text-success font-bold' : 'text-text-secondary'">
+                        {{entry.percent >= 100 ? '✅ Done' : entry.stage + ' ' + entry.percent + '%'}}
+                      </span>
+                    </div>
+                    <div class="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
+                      <div class="h-full rounded-full transition-all duration-500 ease-out"
+                           [style.width.%]="entry.percent"
+                           [class]="entry.percent >= 100 ? 'bg-success' : entry.percent > 50 ? 'bg-accent' : 'bg-sky'">
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Processing Log (compact) -->
+          <div class="w-full bg-surface rounded-[24px] p-4 shadow-soft mb-6 max-h-[150px] overflow-y-auto hide-scrollbar">
+            <div class="flex flex-col gap-1">
+              @for (log of logMessages(); track $index) {
+                <div class="text-[11px] font-mono text-text-secondary/70 leading-relaxed">
+                  <span class="text-text-secondary/40">{{log.percent}}%</span> {{log.message}}
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Found Items -->
+          <div class="w-full bg-surface rounded-[32px] p-6 shadow-soft min-h-[200px]">
             <div class="flex items-center justify-between mb-4">
-              <h3 class="font-bold text-text-primary">Найдено: {{foundItems().length}} предметов</h3>
+              <h3 class="font-bold text-text-primary">Готово: {{foundItems().length}} предметов</h3>
+              @if (progress() === 100) {
+                <span class="text-xs font-bold text-success bg-success/10 px-3 py-1 rounded-full">Complete</span>
+              }
             </div>
 
             <div class="flex flex-col gap-3">
@@ -137,9 +173,17 @@ import {ItemAddedEvent} from '../models/signalr-events.model';
                        [ngStyle]="{'background-color': ['#FF6B7A','#FF9F43','#5BB8FF','#9B8AFB','#51E2A2','#38D9C4'][$index % 6]}">
                     {{item.name.charAt(0)}}
                   </div>
-                  <div class="flex-1">
-                    <div class="font-semibold text-text-primary">{{item.name}}</div>
-                    <div class="text-xs font-mono text-text-secondary">{{(item.confidence ?? 0) * 100 | number:'1.0-0'}}% уверенность</div>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-semibold text-text-primary truncate">{{item.name}}</div>
+                    <div class="flex items-center gap-2 mt-1">
+                      <span class="text-xs font-mono text-text-secondary">{{(item.confidence ?? 0) * 100 | number:'1.0-0'}}%</span>
+                      @if (item.materialType) {
+                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-accent/10 text-accent font-bold">{{item.materialType}}</span>
+                      }
+                      @if (item.meshUrl) {
+                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-success/10 text-success font-bold">3D ✓</span>
+                      }
+                    </div>
                   </div>
                   <div class="w-8 h-8 rounded-full bg-success/10 text-success flex items-center justify-center">
                     <mat-icon class="text-[16px] w-4 h-4">check</mat-icon>
@@ -185,25 +229,46 @@ export class ScanComponent implements OnInit, OnDestroy {
   stage = signal('Загрузка...');
   foundItems = signal<ItemAddedEvent[]>([]);
   errorMessage = signal<string | null>(null);
+  logMessages = signal<{percent: number; message: string}[]>([]);
+  itemProgressMap = signal<Map<string, {name: string; percent: number; stage: string}>>(new Map());
+  itemProgressEntries = computed(() => Array.from(this.itemProgressMap().values()));
 
   private progressEffect = effect(() => {
     const p = this.signalR.scanProgress();
-    if (p && p.containerId === this.containerId()) {
+    if (p) {
+      console.log('SignalR progress:', p.percent, p.stage, 'container:', p.containerId, 'watching:', this.containerId());
       this.progress.set(p.percent);
       this.stage.set(p.stage);
+      const logs = this.logMessages();
+      if (logs.length === 0 || logs[logs.length - 1].message !== p.stage) {
+        this.logMessages.update(l => [...l, {percent: p.percent, message: p.stage}]);
+      }
     }
   });
 
   private itemEffect = effect(() => {
     const item = this.signalR.itemAdded();
-    if (item && item.containerId === this.containerId()) {
+    if (item) {
+      console.log('SignalR itemAdded:', item.name, 'container:', item.containerId);
       this.foundItems.update(items => [...items, item]);
+    }
+  });
+
+  private itemProgressEffect = effect(() => {
+    const p = this.signalR.itemProgress();
+    if (p) {
+      this.itemProgressMap.update(map => {
+        const newMap = new Map(map);
+        newMap.set(p.itemName, {name: p.itemName, percent: p.percent, stage: p.stage});
+        return newMap;
+      });
     }
   });
 
   private completedEffect = effect(() => {
     const c = this.signalR.scanCompleted();
-    if (c && c.containerId === this.containerId()) {
+    if (c) {
+      console.log('SignalR completed:', c);
       this.progress.set(100);
       this.stage.set('Готово');
     }
@@ -271,6 +336,7 @@ export class ScanComponent implements OnInit, OnDestroy {
     this.progress.set(0);
     this.foundItems.set([]);
     this.errorMessage.set(null);
+    this.logMessages.set([{percent: 0, message: '📤 Uploading file...'}]);
     this.stage.set('Загрузка файла...');
 
     const scanType = this.mode() === 'photo' ? 'Photo' as const : 'Lidar' as const;

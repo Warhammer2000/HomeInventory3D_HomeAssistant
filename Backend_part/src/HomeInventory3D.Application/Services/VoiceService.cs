@@ -24,6 +24,7 @@ public class VoiceService(IItemRepository itemRepository)
 
         var resultItems = items.Select(i => new VoiceSearchItemDto(
             i.Id,
+            i.ContainerId,
             i.Name,
             i.Container.Name,
             i.Container.Location)).ToList();

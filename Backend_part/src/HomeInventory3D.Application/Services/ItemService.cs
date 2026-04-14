@@ -119,5 +119,7 @@ public class ItemService(IItemRepository itemRepository)
         i.RotationX, i.RotationY, i.RotationZ,
         i.PhotoPath, i.MeshFilePath, i.ThumbnailPath,
         i.Confidence, i.RecognitionSource,
-        i.Status, i.CreatedAt, i.UpdatedAt);
+        i.Status, i.CreatedAt, i.UpdatedAt,
+        i.MassKg, i.RealSizeCm, i.ColliderType, i.Bounciness,
+        i.Friction, i.MaterialType, i.IsFragile);
 }

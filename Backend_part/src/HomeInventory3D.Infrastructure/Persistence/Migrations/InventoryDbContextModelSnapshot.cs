@@ -134,6 +134,15 @@ namespace HomeInventory3D.Infrastructure.Persistence.Migrations
                         .HasColumnType("real")
                         .HasColumnName("bbox_min_z");
 
+                    b.Property<float?>("Bounciness")
+                        .HasColumnType("real")
+                        .HasColumnName("bounciness");
+
+                    b.Property<string>("ColliderType")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("collider_type");
+
                     b.Property<float?>("Confidence")
                         .HasColumnType("real")
                         .HasColumnName("confidence");
@@ -149,6 +158,23 @@ namespace HomeInventory3D.Infrastructure.Persistence.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("text")
                         .HasColumnName("description");
+
+                    b.Property<float?>("Friction")
+                        .HasColumnType("real")
+                        .HasColumnName("friction");
+
+                    b.Property<bool?>("IsFragile")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_fragile");
+
+                    b.Property<float?>("MassKg")
+                        .HasColumnType("real")
+                        .HasColumnName("mass_kg");
+
+                    b.Property<string>("MaterialType")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("material_type");
 
                     b.Property<string>("MeshFilePath")
                         .HasMaxLength(1000)
@@ -177,6 +203,10 @@ namespace HomeInventory3D.Infrastructure.Persistence.Migrations
                     b.Property<float?>("PositionZ")
                         .HasColumnType("real")
                         .HasColumnName("position_z");
+
+                    b.Property<float?>("RealSizeCm")
+                        .HasColumnType("real")
+                        .HasColumnName("real_size_cm");
 
                     b.Property<string>("RecognitionSource")
                         .HasMaxLength(50)

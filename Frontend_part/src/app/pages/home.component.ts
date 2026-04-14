@@ -1,9 +1,10 @@
-import {ChangeDetectionStrategy, Component, inject, OnInit, signal} from '@angular/core';
+import {ChangeDetectionStrategy, Component, inject, OnInit, AfterViewInit, OnDestroy, ElementRef, signal} from '@angular/core';
 import {RouterLink} from '@angular/router';
 import {NgStyle} from '@angular/common';
 import {MatIconModule} from '@angular/material/icon';
 import {ContainerService} from '../services/container.service';
 import {ContainerDto} from '../models/container.model';
+import gsap from 'gsap';
 
 const COLORS = ['#FF6B7A', '#5BB8FF', '#51E2A2', '#FFD43B', '#9B8AFB', '#FF9F43', '#FF78C4', '#38D9C4'];
 const ICONS = ['inventory_2', 'handyman', 'cable', 'kitchen', 'pedal_bike', 'flight_takeoff', 'edit', 'category'];
@@ -14,16 +15,16 @@ const ICONS = ['inventory_2', 'handyman', 'cable', 'kitchen', 'pedal_bike', 'fli
   imports: [RouterLink, NgStyle, MatIconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="p-6 md:p-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
+    <div class="p-6 md:p-10 home-page">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10 home-header">
         <div>
-          <h1 class="text-3xl md:text-4xl font-extrabold text-text-primary">Мои контейнеры</h1>
-          <p class="text-text-secondary mt-2 font-medium">
+          <h1 class="text-3xl md:text-4xl font-extrabold text-text-primary home-title">Мои контейнеры</h1>
+          <p class="text-text-secondary mt-2 font-medium home-subtitle">
             {{containers().length}} контейнеров · {{totalItems()}} предметов
           </p>
         </div>
         <button (click)="createContainer()"
-                class="rounded-[20px] bg-accent text-white px-6 py-3 font-semibold flex items-center gap-2 hover:scale-[0.97] transition-transform duration-200 shadow-soft">
+                class="home-cta rounded-[20px] bg-accent text-white px-6 py-3 font-semibold flex items-center gap-2 hover:scale-[0.97] transition-transform duration-200 shadow-soft">
           <mat-icon>add</mat-icon>
           Новый контейнер
         </button>
@@ -45,8 +46,7 @@ const ICONS = ['inventory_2', 'handyman', 'cable', 'kitchen', 'pedal_bike', 'fli
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           @for (container of containers(); track container.id; let i = $index) {
             <a [routerLink]="['/container', container.id]"
-               class="group block bg-surface rounded-[24px] p-6 shadow-soft hover:shadow-soft-hover hover:-translate-y-1 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] relative overflow-hidden animate-in fade-in slide-in-from-bottom-4 fill-mode-backwards"
-               [style.animation-delay.ms]="i * 50">
+               class="container-card group block bg-surface rounded-[24px] p-6 shadow-soft hover:shadow-soft-hover hover:-translate-y-1 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] relative overflow-hidden">
 
               <div class="absolute -top-6 -left-6 w-32 h-32 squircle opacity-10 transition-transform duration-500 group-hover:scale-110"
                    [ngStyle]="{'background-color': getColor(i)}"></div>
@@ -87,8 +87,10 @@ const ICONS = ['inventory_2', 'handyman', 'cable', 'kitchen', 'pedal_bike', 'fli
     </div>
   `
 })
-export class HomeComponent implements OnInit {
+export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
   private containerService = inject(ContainerService);
+  private el = inject(ElementRef);
+  private ctx!: gsap.Context;
 
   containers = signal<ContainerDto[]>([]);
   loading = signal(true);
@@ -98,6 +100,29 @@ export class HomeComponent implements OnInit {
     this.loadContainers();
   }
 
+  ngAfterViewInit() {
+    this.ctx = gsap.context(() => {
+      const tl = gsap.timeline({ defaults: { ease: 'power4.out' } });
+
+      // Title — dramatic slide with skew
+      tl.from('.home-title', { y: 80, skewY: 5, autoAlpha: 0, duration: 0.7 })
+        .from('.home-subtitle', { y: 30, autoAlpha: 0, duration: 0.5 }, '-=0.4')
+        .from('.home-cta', { scale: 0.7, autoAlpha: 0, duration: 0.5, ease: 'back.out(2)' }, '-=0.3');
+    }, this.el.nativeElement);
+  }
+
+  ngOnDestroy() {
+    this.ctx?.revert();
+  }
+
+  animateCards() {
+    gsap.from('.container-card', {
+      y: 60, autoAlpha: 0, scale: 0.92, duration: 0.6,
+      ease: 'expo.out',
+      stagger: { each: 0.07, from: 'start' }
+    });
+  }
+
   loadContainers() {
     this.loading.set(true);
     this.containerService.getAll().subscribe({
@@ -105,6 +130,7 @@ export class HomeComponent implements OnInit {
         this.containers.set(data);
         this.totalItems.set(data.reduce((sum, c) => sum + c.itemCount, 0));
         this.loading.set(false);
+        setTimeout(() => this.animateCards(), 50);
       },
       error: (err) => {
         console.error('Failed to load containers:', err);

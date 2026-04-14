@@ -93,6 +93,13 @@ namespace HomeInventory3D.Networking
         public string meshUrl { get; set; }
         public string thumbnailUrl { get; set; }
         public float? confidence { get; set; }
+        public float? massKg { get; set; }
+        public float? realSizeCm { get; set; }
+        public string colliderType { get; set; }
+        public float? bounciness { get; set; }
+        public float? friction { get; set; }
+        public string materialType { get; set; }
+        public bool? isFragile { get; set; }
     }
 
     /// <summary>
@@ -102,5 +109,18 @@ namespace HomeInventory3D.Networking
     public class SearchResultDto
     {
         public ItemDto[] items;
+    }
+
+    /// <summary>
+    /// SignalR event: voice search result for camera navigation.
+    /// Uses properties for System.Text.Json deserialization.
+    /// </summary>
+    public class VoiceSearchResultEvent
+    {
+        public string itemId { get; set; }
+        public string containerId { get; set; }
+        public string itemName { get; set; }
+        public string containerName { get; set; }
+        public string answer { get; set; }
     }
 }

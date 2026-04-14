@@ -12,6 +12,7 @@ public record VoiceSearchResultDto(
 /// </summary>
 public record VoiceSearchItemDto(
     Guid Id,
+    Guid ContainerId,
     string Name,
     string ContainerName,
     string ContainerLocation);

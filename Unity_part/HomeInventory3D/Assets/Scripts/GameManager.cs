@@ -18,6 +18,7 @@ namespace HomeInventory3D
         [SerializeField] private SceneLoader sceneLoader;
         [SerializeField] private ContainerManager containerManager;
         [SerializeField] private ItemSpawner itemSpawner;
+        [SerializeField] private TagConnectionManager tagConnections;
 
         [Header("UI")]
         [SerializeField] private ToastNotification toast;

@@ -30,3 +30,5 @@ appsettings.*.local.json
 # Unity (handled by Unity_part/.gitignore)
 /Unity_part/HomeInventory3D/Assets/LowPolyInterior
 /Unity_part/HomeInventory3D/Assets/ithappy
+/Unity_part/HomeInventory3D/Assets/JMO Assets
+/Unity_part/HomeInventory3D/UIElementsSchema

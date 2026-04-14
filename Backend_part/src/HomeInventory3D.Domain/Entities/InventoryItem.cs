@@ -41,6 +41,15 @@ public class InventoryItem
     public float? Confidence { get; set; }
     public RecognitionSource? RecognitionSource { get; set; }
 
+    // Physics properties (predicted by Claude Vision)
+    public float? MassKg { get; set; }
+    public float? RealSizeCm { get; set; }
+    public string? ColliderType { get; set; }
+    public float? Bounciness { get; set; }
+    public float? Friction { get; set; }
+    public string? MaterialType { get; set; }
+    public bool? IsFragile { get; set; }
+
     public ItemStatus Status { get; set; } = ItemStatus.Present;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

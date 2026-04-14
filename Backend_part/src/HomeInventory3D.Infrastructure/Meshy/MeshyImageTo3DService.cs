@@ -23,7 +23,8 @@ public class MeshyImageTo3DService(
         PropertyNameCaseInsensitive = true
     };
 
-    public async Task<Stream> GenerateModelAsync(Stream imageStream, string? objectPrompt, CancellationToken ct)
+    public async Task<Stream> GenerateModelAsync(Stream imageStream, string? objectPrompt,
+        IProgress<int>? progress, CancellationToken ct)
     {
         var apiKey = options.Value.ApiKey;
         if (string.IsNullOrWhiteSpace(apiKey))
@@ -34,17 +35,19 @@ public class MeshyImageTo3DService(
         var base64 = Convert.ToBase64String(ms.ToArray());
         var dataUri = $"data:image/jpeg;base64,{base64}";
 
+        progress?.Report(5);
         logger.LogInformation("Submitting photo to Meshy AI ({Bytes} bytes, prompt: {Prompt})", ms.Length, objectPrompt ?? "none");
 
         var taskId = await CreateTaskAsync(dataUri, objectPrompt, apiKey, ct);
         logger.LogInformation("Meshy task created: {TaskId}", taskId);
+        progress?.Report(10);
 
-        // Step 3: Poll until complete
-        var glbUrl = await PollForCompletionAsync(taskId, apiKey, ct);
+        var glbUrl = await PollForCompletionAsync(taskId, apiKey, progress, ct);
         logger.LogInformation("Meshy task completed. GLB URL: {Url}", glbUrl);
+        progress?.Report(95);
 
-        // Step 4: Download GLB
         var glbStream = await DownloadGlbAsync(glbUrl, ct);
+        progress?.Report(100);
         return glbStream;
     }
 
@@ -88,7 +91,7 @@ public class MeshyImageTo3DService(
         throw new InvalidOperationException($"Meshy returned unexpected format: {responseBody}");
     }
 
-    private async Task<string> PollForCompletionAsync(string taskId, string apiKey, CancellationToken ct)
+    private async Task<string> PollForCompletionAsync(string taskId, string apiKey, IProgress<int>? progress, CancellationToken ct)
     {
         var pollInterval = TimeSpan.FromSeconds(options.Value.PollIntervalSeconds);
         var timeout = TimeSpan.FromSeconds(options.Value.TimeoutSeconds);
@@ -110,9 +113,12 @@ public class MeshyImageTo3DService(
             var root = doc.RootElement;
 
             var statusStr = root.TryGetProperty("status", out var sp) ? sp.GetString() ?? "" : "";
-            var progress = root.TryGetProperty("progress", out var pp) ? pp.GetInt32() : 0;
+            var meshProgress = root.TryGetProperty("progress", out var pp) ? pp.GetInt32() : 0;
 
-            logger.LogInformation("Meshy task {TaskId}: {Status} ({Progress}%)", taskId, statusStr, progress);
+            logger.LogInformation("Meshy task {TaskId}: {Status} ({Progress}%)", taskId, statusStr, meshProgress);
+
+            // Report Meshy progress mapped to 10-90 range
+            progress?.Report(10 + (int)(meshProgress * 0.8));
 
             switch (statusStr.ToUpperInvariant())
             {

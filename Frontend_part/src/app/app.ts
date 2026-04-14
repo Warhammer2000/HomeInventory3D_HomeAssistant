@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, Component, signal} from '@angular/core';
+import {ChangeDetectionStrategy, Component} from '@angular/core';
 import {RouterOutlet, RouterLink, RouterLinkActive} from '@angular/router';
 import {NgClass} from '@angular/common';
 import {MatIconModule} from '@angular/material/icon';
@@ -10,31 +10,23 @@ import {MatIconModule} from '@angular/material/icon';
   template: `
     <div class="flex h-screen w-full overflow-hidden bg-cream">
       <!-- Desktop Sidebar -->
-      <aside class="hidden md:flex flex-col items-center w-[72px] hover:w-[240px] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] bg-surface shadow-soft z-50 group overflow-hidden shrink-0">
-        <div class="flex items-center justify-center h-20 w-full shrink-0">
+      <aside class="hidden md:flex flex-col items-center w-[240px] bg-surface shadow-soft z-50 shrink-0">
+        <div class="flex items-center gap-3 h-20 w-full px-6 shrink-0">
           <div class="w-10 h-10 squircle bg-accent text-white flex items-center justify-center font-heading font-bold text-xl">
             H
           </div>
+          <span class="font-heading font-bold text-lg text-text-primary">Inventory</span>
         </div>
-        
-        <nav class="flex flex-col gap-4 mt-8 w-full px-3">
+
+        <nav class="flex flex-col gap-2 mt-4 w-full px-4">
           @for (item of navItems; track item.path) {
-            <a [routerLink]="item.path" 
-               routerLinkActive="text-accent"
+            <a [routerLink]="item.path"
+               routerLinkActive="active-nav"
                #rla="routerLinkActive"
-               class="relative flex items-center h-12 rounded-2xl group/nav hover:scale-[1.05] transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer text-text-secondary">
-              
-              <!-- Active Indicator -->
-              <div class="absolute inset-0 rounded-full transition-colors duration-300"
-                   [ngClass]="rla.isActive ? 'bg-surface-secondary' : 'group-hover/nav:bg-gray-50'"></div>
-              
-              <div class="relative flex items-center w-full px-3">
-                <mat-icon class="shrink-0" [ngClass]="rla.isActive ? 'text-accent' : ''">{{item.icon}}</mat-icon>
-                <span class="ml-4 font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                      [ngClass]="rla.isActive ? 'text-accent' : ''">
-                  {{item.label}}
-                </span>
-              </div>
+               class="flex items-center gap-4 h-12 px-4 rounded-2xl cursor-pointer transition-colors duration-200 text-text-secondary hover:bg-gray-50"
+               [ngClass]="rla.isActive ? 'bg-surface-secondary text-accent' : ''">
+              <mat-icon [ngClass]="rla.isActive ? 'text-accent' : ''">{{item.icon}}</mat-icon>
+              <span class="font-semibold text-sm" [ngClass]="rla.isActive ? 'text-accent' : ''">{{item.label}}</span>
             </a>
           }
         </nav>
@@ -42,10 +34,6 @@ import {MatIconModule} from '@angular/material/icon';
 
       <!-- Main Content -->
       <main class="flex-1 h-full overflow-y-auto relative pb-20 md:pb-0">
-        <!-- Blob Backgrounds -->
-        <div class="fixed top-[-10%] left-[-5%] w-[40%] h-[40%] rounded-full bg-coral/5 blur-3xl -z-10 pointer-events-none"></div>
-        <div class="fixed bottom-[-10%] right-[-5%] w-[50%] h-[50%] rounded-full bg-sky/5 blur-3xl -z-10 pointer-events-none"></div>
-        
         <div class="max-w-7xl mx-auto w-full min-h-full">
           <router-outlet></router-outlet>
         </div>

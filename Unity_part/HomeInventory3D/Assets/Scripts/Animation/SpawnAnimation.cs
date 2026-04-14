@@ -31,15 +31,11 @@ namespace HomeInventory3D.Animation
     {
         private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
         private static GameObject _vfxPrefab;
-        private static GameObject _ringPrefab;
 
         public void StartAnimation(Material glowMaterial, float duration)
         {
-            // Lazy-load VFX prefabs
             if (_vfxPrefab == null)
                 _vfxPrefab = Resources.Load<GameObject>("SpawnVFX");
-            if (_ringPrefab == null)
-                _ringPrefab = Resources.Load<GameObject>("SpawnRing");
 
             StartCoroutine(AnimateSpawn(glowMaterial, duration));
         }
@@ -105,17 +101,9 @@ namespace HomeInventory3D.Animation
             if (_vfxPrefab != null)
             {
                 var vfx = Instantiate(_vfxPrefab, position, Quaternion.identity);
-                var ps = vfx.GetComponent<ParticleSystem>();
-                if (ps != null) ps.Play();
-                Destroy(vfx, 2f);
-            }
-
-            if (_ringPrefab != null)
-            {
-                var ring = Instantiate(_ringPrefab, position, Quaternion.identity);
-                var ps = ring.GetComponent<ParticleSystem>();
-                if (ps != null) ps.Play();
-                Destroy(ring, 2f);
+                foreach (var ps in vfx.GetComponentsInChildren<ParticleSystem>())
+                    ps.Play();
+                Destroy(vfx, 3f);
             }
         }
 

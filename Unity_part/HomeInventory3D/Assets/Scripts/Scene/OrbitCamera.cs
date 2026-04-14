@@ -4,143 +4,212 @@ using UnityEngine.InputSystem;
 namespace HomeInventory3D.Scene
 {
     /// <summary>
-    /// Orbit camera controller for inspecting the container.
-    /// Uses new Input System. Supports mouse drag to rotate, scroll to zoom, touch pinch.
+    /// Free orbit camera with click-to-focus on any object.
+    /// LMB: rotate, RMB: pan, Scroll: zoom, Click object: fly to it, WASD: move.
     /// </summary>
     public class OrbitCamera : MonoBehaviour
     {
+        [Header("Orbit")]
         [SerializeField] private Transform target;
-        [SerializeField] private float distance = 2f;
-        [SerializeField] private float minDistance = 0.5f;
-        [SerializeField] private float maxDistance = 10f;
+        [SerializeField] private float distance = 3f;
+        [SerializeField] private float minDistance = 0.3f;
+        [SerializeField] private float maxDistance = 20f;
         [SerializeField] private float rotationSpeed = 0.3f;
-        [SerializeField] private float zoomSpeed = 0.5f;
+        [SerializeField] private float zoomSpeed = 1f;
+        [SerializeField] private float panSpeed = 0.005f;
+        [SerializeField] private float moveSpeed = 3f;
         [SerializeField] private float minPitch = -80f;
         [SerializeField] private float maxPitch = 80f;
-        [SerializeField] private float smoothTime = 0.1f;
+
+        [Header("Smoothing")]
+        [SerializeField] private float orbitSmooth = 8f;
+        [SerializeField] private float flyToSpeed = 3f;
 
         private float _yaw;
         private float _pitch = 30f;
-        private float _currentDistance;
-        private float _velocityDistance;
+        private float _targetDistance;
+        private Vector3 _focusPoint;
+        private bool _isFlyingTo;
+        private Transform _pivot;
 
         private Mouse _mouse;
-        private Touchscreen _touch;
+        private Keyboard _keyboard;
 
         private void Start()
         {
-            _currentDistance = distance;
             _mouse = Mouse.current;
-            _touch = Touchscreen.current;
+            _keyboard = Keyboard.current;
+            _targetDistance = distance;
 
-            if (target == null)
+            // Create invisible pivot — camera orbits around this, not the actual target object
+            var pivotGo = new GameObject("[CameraPivot]");
+            DontDestroyOnLoad(pivotGo);
+            _pivot = pivotGo.transform;
+
+            if (target != null)
+                _pivot.position = target.position;
+
+            _focusPoint = _pivot.position;
+
+            // Initialize angles from current camera orientation
+            var dir = (transform.position - _pivot.position).normalized;
+            if (dir.sqrMagnitude > 0.001f)
             {
-                var center = new GameObject("[OrbitTarget]");
-                center.transform.position = Vector3.zero;
-                target = center.transform;
+                _yaw = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg;
+                _pitch = Mathf.Asin(Mathf.Clamp(dir.y, -1f, 1f)) * Mathf.Rad2Deg;
             }
-
-            var angles = transform.eulerAngles;
-            _yaw = angles.y;
-            _pitch = angles.x;
         }
 
         private void LateUpdate()
         {
-            HandleInput();
+            if (_mouse == null) return;
+
+            HandleClickToFocus();
+            HandleRotation();
+            HandlePan();
+            HandleZoom();
+            HandleWASD();
             ApplyTransform();
         }
 
-        private void HandleInput()
+        private void HandleClickToFocus()
         {
-            HandleMouseInput();
-            HandleTouchInput();
+            if (!_mouse.leftButton.wasPressedThisFrame) return;
+
+            // Don't focus if dragging (check if mouse moved)
+            var ray = Camera.main.ScreenPointToRay(_mouse.position.ReadValue());
+            if (Physics.Raycast(ray, out var hit, 100f))
+            {
+                // Check if it's an interactable object (has ItemController or Renderer)
+                var item = hit.collider.GetComponentInParent<ItemController>();
+                if (item != null)
+                {
+                    FlyTo(hit.collider.bounds.center, hit.collider.bounds.extents.magnitude * 3f);
+                    Debug.Log($"Camera focusing on: {item.ItemName}");
+                    return;
+                }
+
+                // Any other object with a renderer
+                var renderer = hit.collider.GetComponent<Renderer>();
+                if (renderer != null)
+                {
+                    FlyTo(renderer.bounds.center, renderer.bounds.extents.magnitude * 3f);
+                    Debug.Log($"Camera focusing on: {hit.collider.name}");
+                }
+            }
         }
 
-        private void HandleMouseInput()
+        private void HandleRotation()
         {
-            if (_mouse == null) return;
-
-            // Rotation — right mouse button drag
+            // Right mouse button — orbit rotation
             if (_mouse.rightButton.isPressed)
             {
                 var delta = _mouse.delta.ReadValue();
                 _yaw += delta.x * rotationSpeed;
                 _pitch -= delta.y * rotationSpeed;
                 _pitch = Mathf.Clamp(_pitch, minPitch, maxPitch);
-            }
-
-            // Zoom — scroll wheel
-            var scroll = _mouse.scroll.ReadValue().y;
-            if (Mathf.Abs(scroll) > 0.01f)
-            {
-                distance -= scroll * zoomSpeed * 0.01f;
-                distance = Mathf.Clamp(distance, minDistance, maxDistance);
+                _isFlyingTo = false;
             }
         }
 
-        private void HandleTouchInput()
+        private void HandlePan()
         {
-            if (_touch == null) return;
-
-            var touches = _touch.touches;
-
-            // Single finger drag — rotate
-            if (touches.Count == 1 && touches[0].phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Moved)
+            // Middle mouse button — pan
+            if (_mouse.middleButton.isPressed)
             {
-                var delta = touches[0].delta.ReadValue();
-                _yaw += delta.x * rotationSpeed;
-                _pitch -= delta.y * rotationSpeed;
-                _pitch = Mathf.Clamp(_pitch, minPitch, maxPitch);
+                var delta = _mouse.delta.ReadValue();
+                var right = transform.right * (-delta.x * panSpeed * distance);
+                var up = transform.up * (-delta.y * panSpeed * distance);
+                _focusPoint += right + up;
+                _isFlyingTo = false;
             }
+        }
 
-            // Two finger pinch — zoom
-            if (touches.Count >= 2)
+        private void HandleZoom()
+        {
+            var scroll = _mouse.scroll.ReadValue().y;
+            if (Mathf.Abs(scroll) > 0.01f)
             {
-                var t0 = touches[0];
-                var t1 = touches[1];
+                _targetDistance -= scroll * zoomSpeed * 0.005f * _targetDistance;
+                _targetDistance = Mathf.Clamp(_targetDistance, minDistance, maxDistance);
+            }
+        }
 
-                var t0Pos = t0.position.ReadValue();
-                var t1Pos = t1.position.ReadValue();
-                var t0Delta = t0.delta.ReadValue();
-                var t1Delta = t1.delta.ReadValue();
+        private void HandleWASD()
+        {
+            if (_keyboard == null) return;
 
-                var prevDist = ((t0Pos - t0Delta) - (t1Pos - t1Delta)).magnitude;
-                var currDist = (t0Pos - t1Pos).magnitude;
-                var diff = currDist - prevDist;
+            var move = Vector3.zero;
+            if (_keyboard.wKey.isPressed) move += transform.forward;
+            if (_keyboard.sKey.isPressed) move -= transform.forward;
+            if (_keyboard.aKey.isPressed) move -= transform.right;
+            if (_keyboard.dKey.isPressed) move += transform.right;
 
-                distance -= diff * 0.01f * zoomSpeed;
-                distance = Mathf.Clamp(distance, minDistance, maxDistance);
+            if (move.sqrMagnitude > 0.01f)
+            {
+                _focusPoint += move.normalized * (moveSpeed * Time.deltaTime);
+                _isFlyingTo = false;
             }
         }
 
         private void ApplyTransform()
         {
-            _currentDistance = Mathf.SmoothDamp(_currentDistance, distance, ref _velocityDistance, smoothTime);
+            // Smooth fly-to
+            if (_isFlyingTo)
+            {
+                _pivot.position = Vector3.Lerp(_pivot.position, _focusPoint, Time.deltaTime * flyToSpeed);
+                if (Vector3.Distance(_pivot.position, _focusPoint) < 0.05f)
+                    _isFlyingTo = false;
+            }
+            else
+            {
+                _pivot.position = Vector3.Lerp(_pivot.position, _focusPoint, Time.deltaTime * orbitSmooth);
+            }
 
+            // Smooth zoom
+            distance = Mathf.Lerp(distance, _targetDistance, Time.deltaTime * orbitSmooth);
+
+            // Apply orbit — camera moves, not the target objects
             var rotation = Quaternion.Euler(_pitch, _yaw, 0);
-            var offset = rotation * new Vector3(0, 0, -_currentDistance);
+            var offset = rotation * new Vector3(0, 0, -distance);
 
-            transform.position = target.position + offset;
-            transform.LookAt(target.position);
+            transform.position = _pivot.position + offset;
+            transform.LookAt(_pivot.position);
         }
 
         /// <summary>
-        /// Sets the orbit target to a new transform.
+        /// Smoothly fly camera to focus on a world position.
+        /// </summary>
+        public void FlyTo(Vector3 worldPosition, float newDistance = -1f)
+        {
+            _focusPoint = worldPosition;
+            _isFlyingTo = true;
+
+            if (newDistance > 0)
+                _targetDistance = Mathf.Clamp(newDistance, minDistance, maxDistance);
+        }
+
+        /// <summary>
+        /// Sets the initial orbit target (reads position, doesn't move the object).
         /// </summary>
         public void SetTarget(Transform newTarget)
         {
             target = newTarget;
+            _focusPoint = newTarget.position;
+            if (_pivot != null)
+                _pivot.position = newTarget.position;
         }
 
         /// <summary>
-        /// Resets camera to default view.
+        /// Resets to initial target view.
         /// </summary>
         public void ResetView()
         {
             _yaw = 0f;
             _pitch = 30f;
-            distance = 2f;
+            _targetDistance = 3f;
+            if (target != null)
+                _focusPoint = target.position;
         }
     }
 }

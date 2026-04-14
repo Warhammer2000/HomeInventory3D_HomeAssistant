@@ -4,6 +4,8 @@ using HomeInventory3D.Application.Interfaces;
 using HomeInventory3D.Domain.Entities;
 using HomeInventory3D.Domain.Enums;
 using HomeInventory3D.Infrastructure.Storage;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -173,6 +175,7 @@ public class ScanProcessingWorker(
                 await itemRepo.AddAsync(item, ct);
 
                 // 4f: SignalR notification IMMEDIATELY
+                var itemPhysics = label.Physics ?? PhysicsPropertiesDto.Default;
                 var addedDto = new ItemAddedDto(
                     item.Id, item.ContainerId, item.Name, item.Tags,
                     item.PositionX, item.PositionY, item.PositionZ,
@@ -181,7 +184,9 @@ public class ScanProcessingWorker(
                     item.BboxMaxX, item.BboxMaxY, item.BboxMaxZ,
                     fileStorage.GetUrl(glbPath),
                     fileStorage.GetUrl(thumbPath),
-                    item.Confidence);
+                    item.Confidence,
+                    itemPhysics.MassKg, itemPhysics.RealSizeCm, itemPhysics.ColliderType, itemPhysics.Bounciness,
+                    itemPhysics.Friction, itemPhysics.MaterialType, itemPhysics.IsFragile);
 
                 await notifications.NotifyItemAddedAsync(addedDto, ct);
 
@@ -233,61 +238,140 @@ public class ScanProcessingWorker(
         var notifications = scope.ServiceProvider.GetRequiredService<IInventoryNotificationService>();
         var visionService = scope.ServiceProvider.GetRequiredService<IVisionRecognitionService>();
         var imageTo3D = scope.ServiceProvider.GetRequiredService<IImageTo3DService>();
-        var storageOpts = scope.ServiceProvider.GetRequiredService<IOptions<StorageOptions>>();
 
         var container = await containerRepo.GetByIdAsync(session.ContainerId, ct);
 
         await notifications.NotifyScanProgressAsync(
-            session.Id, session.ContainerId, 20, "Analyzing photo (AI + 3D generation)", ct);
+            session.Id, session.ContainerId, 10, "📷 Photo uploaded. Starting AI analysis...", ct);
 
-        // Read photo bytes once
         var photoBytes = await File.ReadAllBytesAsync(photoPath, ct);
 
-        // Step 1: Claude Vision → name, tags, description
-        RecognizedItemDto label;
+        await notifications.NotifyScanProgressAsync(
+            session.Id, session.ContainerId, 15, "🧠 Sending to Claude Vision for recognition...", ct);
+
+        // Step 1: Claude Vision → recognize ALL objects
+        List<RecognizedItemDto> recognizedItems;
         using (var visionStream = new MemoryStream(photoBytes))
         {
-            label = await SafeVisionRecognizeAsync(visionService, visionStream, container?.Name, ct);
+            recognizedItems = await SafeVisionRecognizeAllAsync(visionService, visionStream, container?.Name, ct);
         }
 
+        var count = recognizedItems.Count;
+        session.ItemsDetected = count;
+
         await notifications.NotifyScanProgressAsync(
-            session.Id, session.ContainerId, 30, $"Recognized: {label.Name}. Generating 3D model...", ct);
+            session.Id, session.ContainerId, 20,
+            $"✅ Recognized {count} object(s): {string.Join(", ", recognizedItems.Select(r => r.Name))}", ct);
 
-        logger.LogInformation("Photo recognized as: {Name} (confidence: {Confidence}). Sending to Meshy with prompt.",
-            label.Name, label.Confidence);
+        logger.LogInformation("Photo scan {ScanId}: recognized {Count} objects", session.Id, count);
 
-        // Step 2: Meshy AI → 3D model, using Claude's label as object_prompt
+        if (count == 0)
+        {
+            session.Status = ScanStatus.Completed;
+            session.ItemsAdded = 0;
+            await scanRepo.UpdateAsync(session, ct);
+            await notifications.NotifyScanCompletedAsync(session.Id, session.ContainerId, 0, 0, 0, ct);
+            return;
+        }
+
+        // Step 2: Launch ALL items in parallel — each async task has its own DI scope
+        var tasks = recognizedItems.Select((label, i) =>
+        {
+            var croppedBytes = CropImageByBbox(photoBytes, label);
+            return ProcessSingleItemWithScopeAsync(label, croppedBytes, i, count, session, container, ct);
+        }).ToList();
+
+        var results = await Task.WhenAll(tasks);
+        var itemsAdded = results.Count(r => r);
+        var itemsFailed = count - itemsAdded;
+
+        // Finalize session
+        await using var endScope = scopeFactory.CreateAsyncScope();
+        var endScanRepo = endScope.ServiceProvider.GetRequiredService<IScanSessionRepository>();
+        var endNotify = endScope.ServiceProvider.GetRequiredService<IInventoryNotificationService>();
+
+        session.Status = ScanStatus.Completed;
+        session.ItemsAdded = itemsAdded;
+        if (itemsFailed > 0)
+            session.ErrorMessage = $"{itemsFailed} item(s) failed";
+        await endScanRepo.UpdateAsync(session, ct);
+        await endNotify.NotifyScanCompletedAsync(session.Id, session.ContainerId, count, itemsAdded, 0, ct);
+
+        logger.LogInformation("Photo scan {ScanId}: {Added}/{Total} items added", session.Id, itemsAdded, count);
+    }
+
+    private async Task<bool> ProcessSingleItemWithScopeAsync(
+        RecognizedItemDto label, byte[] croppedBytes, int index, int total,
+        ScanSession session, Container? container, CancellationToken ct)
+    {
+        try
+        {
+            await using var s = scopeFactory.CreateAsyncScope();
+            await ProcessSingleItemFromPhotoAsync(
+                label, croppedBytes, index, total, session, container,
+                s.ServiceProvider.GetRequiredService<IFileStorageService>(),
+                s.ServiceProvider.GetRequiredService<IItemRepository>(),
+                s.ServiceProvider.GetRequiredService<IImageTo3DService>(),
+                s.ServiceProvider.GetRequiredService<IInventoryNotificationService>(), ct);
+            return true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Failed: {Name} in scan {ScanId}", label.Name, session.Id);
+            return false;
+        }
+    }
+
+    private async Task ProcessSingleItemFromPhotoAsync(
+        RecognizedItemDto label, byte[] croppedBytes, int index, int total,
+        ScanSession session, Container? container,
+        IFileStorageService fileStorage, IItemRepository itemRepo,
+        IImageTo3DService imageTo3D, IInventoryNotificationService notifications,
+        CancellationToken ct)
+    {
+        var itemId = Guid.CreateVersion7();
         var meshyPrompt = label.Confidence > 0
             ? $"{label.Name}. {label.Description ?? ""}"
             : null;
 
-        Stream? glbStream;
-        using (var meshyStream = new MemoryStream(photoBytes))
+        // Per-item progress via dedicated SignalR event
+        await notifications.NotifyItemProgressAsync(
+            session.Id, label.Name, index, total, 0, "Starting 3D generation...", ct);
+
+        var itemProgress = new Progress<int>(meshyPct =>
         {
-            glbStream = await SafeMeshyGenerateAsync(imageTo3D, meshyStream, meshyPrompt, ct);
+            var stage = meshyPct switch
+            {
+                < 15 => "Queued",
+                < 50 => "Generating mesh",
+                < 80 => "Texturing",
+                < 100 => "Finalizing",
+                _ => "Complete"
+            };
+            _ = notifications.NotifyItemProgressAsync(session.Id, label.Name, index, total, meshyPct, stage, ct);
+        });
+
+        Stream? glbStream;
+        using (var meshyStream = new MemoryStream(croppedBytes))
+        {
+            glbStream = await SafeMeshyGenerateAsync(imageTo3D, meshyStream, meshyPrompt, itemProgress, ct);
         }
 
-        await notifications.NotifyScanProgressAsync(
-            session.Id, session.ContainerId, 85, glbStream is not null ? "3D model ready" : "3D generation failed, saving without model", ct);
-
-        var itemId = Guid.CreateVersion7();
         string? glbPath = null;
-
-        // Save GLB if Meshy succeeded
         if (glbStream is not null)
         {
             glbPath = await fileStorage.SaveAsync(
                 glbStream, $"meshes/{session.ContainerId}", $"{itemId}.glb", ct);
             await glbStream.DisposeAsync();
-            logger.LogInformation("Meshy GLB saved: {Path}", glbPath);
         }
 
-        // Save photo as thumbnail
-        using var thumbSource = new MemoryStream(photoBytes);
+        // Save cropped image as thumbnail
+        using var thumbStream = new MemoryStream(croppedBytes);
         var thumbPath = await fileStorage.SaveAsync(
-            thumbSource, $"thumbnails/{session.ContainerId}", $"{itemId}.jpg", ct);
+            thumbStream, $"thumbnails/{session.ContainerId}", $"{itemId}.jpg", ct);
 
         // Create InventoryItem
+        var physics = label.Physics ?? PhysicsPropertiesDto.Default;
         var now = DateTime.UtcNow;
         var item = new InventoryItem
         {
@@ -306,6 +390,13 @@ public class ScanProcessingWorker(
             RecognitionSource = glbPath is not null
                 ? RecognitionSource.MeshyAI
                 : RecognitionSource.ClaudeVision,
+            MassKg = physics.MassKg,
+            RealSizeCm = physics.RealSizeCm,
+            ColliderType = physics.ColliderType,
+            Bounciness = physics.Bounciness,
+            Friction = physics.Friction,
+            MaterialType = physics.MaterialType,
+            IsFragile = physics.IsFragile,
             Status = ItemStatus.Present,
             CreatedAt = now,
             UpdatedAt = now
@@ -313,30 +404,74 @@ public class ScanProcessingWorker(
 
         await itemRepo.AddAsync(item, ct);
 
-        // SignalR notification
+        // SignalR — immediately notify Unity
         var addedDto = new ItemAddedDto(
             item.Id, item.ContainerId, item.Name, item.Tags,
             item.PositionX, item.PositionY, item.PositionZ,
-            null, null, null,
-            null, null, null,
-            null, null, null,
+            null, null, null, null, null, null, null, null, null,
             glbPath is not null ? fileStorage.GetUrl(glbPath) : null,
             fileStorage.GetUrl(thumbPath),
-            item.Confidence);
+            item.Confidence,
+            physics.MassKg, physics.RealSizeCm, physics.ColliderType, physics.Bounciness,
+            physics.Friction, physics.MaterialType, physics.IsFragile);
 
         await notifications.NotifyItemAddedAsync(addedDto, ct);
+        await notifications.NotifyItemProgressAsync(session.Id, label.Name, index, total, 100, "Complete", ct);
 
-        // Finalize
-        session.Status = ScanStatus.Completed;
-        session.ItemsDetected = 1;
-        session.ItemsAdded = 1;
-        await scanRepo.UpdateAsync(session, ct);
+        logger.LogInformation("Photo item {Index}/{Total}: {Name} (GLB: {HasGlb})",
+            index + 1, total, label.Name, glbPath is not null);
+    }
 
-        await notifications.NotifyScanCompletedAsync(
-            session.Id, session.ContainerId, 1, 1, 0, ct);
+    private static byte[] CropImageByBbox(byte[] photoBytes, RecognizedItemDto item, float padding = 0.05f)
+    {
+        // If no bbox data, return original photo
+        if (!item.BboxMinX.HasValue || !item.BboxMaxX.HasValue)
+            return photoBytes;
 
-        logger.LogInformation("Photo scan {ScanId} completed: {Name} (GLB: {HasGlb})",
-            session.Id, item.Name, glbPath is not null);
+        using var image = SixLabors.ImageSharp.Image.Load(photoBytes);
+        var w = image.Width;
+        var h = image.Height;
+
+        var bboxMinX = item.BboxMinX ?? 0f;
+        var bboxMinY = item.BboxMinY ?? 0f;
+        var bboxMaxX = item.BboxMaxX ?? 1f;
+        var bboxMaxY = item.BboxMaxY ?? 1f;
+
+        // Add padding (percentage of bbox size)
+        var padW = (bboxMaxX - bboxMinX) * padding;
+        var padH = (bboxMaxY - bboxMinY) * padding;
+
+        var x1 = Math.Max(0, (int)((bboxMinX - padW) * w));
+        var y1 = Math.Max(0, (int)((bboxMinY - padH) * h));
+        var x2 = Math.Min(w, (int)((bboxMaxX + padW) * w));
+        var y2 = Math.Min(h, (int)((bboxMaxY + padH) * h));
+
+        var cropW = Math.Max(1, x2 - x1);
+        var cropH = Math.Max(1, y2 - y1);
+
+        var rect = new SixLabors.ImageSharp.Rectangle(x1, y1, cropW, cropH);
+        using var cropped = image.Clone(ctx => ctx.Crop(rect));
+
+        using var ms = new MemoryStream();
+        cropped.SaveAsJpeg(ms);
+        return ms.ToArray();
+    }
+
+    private async Task<List<RecognizedItemDto>> SafeVisionRecognizeAllAsync(
+        IVisionRecognitionService visionService, MemoryStream photoStream,
+        string? containerName, CancellationToken ct)
+    {
+        try
+        {
+            var results = await visionService.RecognizeItemsAsync(photoStream, containerName, ct);
+            if (results.Count > 0) return results;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Vision recognition failed for photo, using fallback");
+        }
+
+        return [new RecognizedItemDto("Photo Object", [], null, 0f, null, null, null, null, null, null, PhysicsPropertiesDto.Default)];
     }
 
     private async Task<RecognizedItemDto> SafeVisionRecognizeAsync(
@@ -353,15 +488,16 @@ public class ScanProcessingWorker(
             logger.LogWarning(ex, "Vision recognition failed for photo, using fallback");
         }
 
-        return new RecognizedItemDto("Photo Object", [], null, 0f, null, null, null, null, null, null);
+        return new RecognizedItemDto("Photo Object", [], null, 0f, null, null, null, null, null, null, PhysicsPropertiesDto.Default);
     }
 
     private async Task<Stream?> SafeMeshyGenerateAsync(
-        IImageTo3DService imageTo3D, MemoryStream photoStream, string? objectPrompt, CancellationToken ct)
+        IImageTo3DService imageTo3D, MemoryStream photoStream, string? objectPrompt,
+        IProgress<int>? progress, CancellationToken ct)
     {
         try
         {
-            return await imageTo3D.GenerateModelAsync(photoStream, objectPrompt, ct);
+            return await imageTo3D.GenerateModelAsync(photoStream, objectPrompt, progress, ct);
         }
         catch (Exception ex)
         {
@@ -399,7 +535,7 @@ public class ScanProcessingWorker(
             logger.LogWarning(ex, "Vision recognition failed for mesh {Index}, using fallback", meshIndex);
         }
 
-        return new RecognizedItemDto($"Object {meshIndex + 1}", [], null, 0f, null, null, null, null, null, null);
+        return new RecognizedItemDto($"Object {meshIndex + 1}", [], null, 0f, null, null, null, null, null, null, PhysicsPropertiesDto.Default);
     }
 
     private async Task TryMarkFailedAsync(Guid scanId, string error, CancellationToken ct)

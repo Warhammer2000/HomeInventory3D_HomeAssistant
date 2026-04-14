@@ -1,7 +1,7 @@
 namespace HomeInventory3D.Application.DTOs;
 
 /// <summary>
-/// Result of AI vision recognition for a single object.
+/// Result of AI vision recognition for a single object, including predicted physics.
 /// </summary>
 public record RecognizedItemDto(
     string Name,
@@ -13,4 +13,5 @@ public record RecognizedItemDto(
     float? BboxMinX,
     float? BboxMinY,
     float? BboxMaxX,
-    float? BboxMaxY);
+    float? BboxMaxY,
+    PhysicsPropertiesDto? Physics);

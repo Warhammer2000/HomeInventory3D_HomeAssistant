@@ -49,6 +49,14 @@ public class InventoryItemConfiguration : IEntityTypeConfiguration<InventoryItem
             .HasConversion<string>().HasMaxLength(20)
             .HasDefaultValue(ItemStatus.Present);
 
+        builder.Property(i => i.MassKg).HasColumnName("mass_kg");
+        builder.Property(i => i.RealSizeCm).HasColumnName("real_size_cm");
+        builder.Property(i => i.ColliderType).HasColumnName("collider_type").HasMaxLength(20);
+        builder.Property(i => i.Bounciness).HasColumnName("bounciness");
+        builder.Property(i => i.Friction).HasColumnName("friction");
+        builder.Property(i => i.MaterialType).HasColumnName("material_type").HasMaxLength(20);
+        builder.Property(i => i.IsFragile).HasColumnName("is_fragile");
+
         builder.Property(i => i.CreatedAt).HasColumnName("created_at");
         builder.Property(i => i.UpdatedAt).HasColumnName("updated_at");
 

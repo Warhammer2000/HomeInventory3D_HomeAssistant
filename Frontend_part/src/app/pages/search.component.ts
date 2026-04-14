@@ -1,8 +1,9 @@
-import {ChangeDetectionStrategy, Component, inject, signal} from '@angular/core';
+import {ChangeDetectionStrategy, Component, inject, signal, AfterViewInit, OnDestroy, ElementRef} from '@angular/core';
 import {NgStyle} from '@angular/common';
 import {MatIconModule} from '@angular/material/icon';
 import {RouterLink} from '@angular/router';
 import {ItemService} from '../services/item.service';
+import gsap from 'gsap';
 import {ItemDto} from '../models/item.model';
 import {Subject} from 'rxjs';
 import {debounceTime, distinctUntilChanged, switchMap, of, catchError} from 'rxjs';
@@ -23,9 +24,9 @@ const COLORS = ['#FF6B7A', '#5BB8FF', '#51E2A2', '#FFD43B', '#9B8AFB', '#FF9F43'
   imports: [NgStyle, MatIconModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="p-6 md:p-10 max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div class="p-6 md:p-10 max-w-4xl mx-auto search-page">
       <!-- Search Input -->
-      <div class="relative mb-10 group">
+      <div class="search-box relative mb-10 group">
         <div class="absolute inset-y-0 left-6 flex items-center pointer-events-none text-text-secondary group-focus-within:text-accent transition-colors">
           <mat-icon class="text-3xl w-8 h-8 flex items-center justify-center">search</mat-icon>
         </div>
@@ -72,7 +73,7 @@ const COLORS = ['#FF6B7A', '#5BB8FF', '#51E2A2', '#FFD43B', '#9B8AFB', '#FF9F43'
 
               <div class="flex flex-col gap-3">
                 @for (item of group.items; track item.id) {
-                  <div class="bg-surface rounded-[20px] p-4 flex items-center gap-4 shadow-sm hover:shadow-soft transition-shadow cursor-pointer">
+                  <div class="search-result bg-surface rounded-[20px] p-4 flex items-center gap-4 shadow-sm hover:shadow-soft transition-shadow cursor-pointer">
                     <div class="w-12 h-12 squircle flex items-center justify-center text-white font-bold shrink-0"
                          [ngStyle]="{'background-color': group.color}">
                       {{item.name.charAt(0)}}
@@ -111,8 +112,10 @@ const COLORS = ['#FF6B7A', '#5BB8FF', '#51E2A2', '#FFD43B', '#9B8AFB', '#FF9F43'
     </div>
   `
 })
-export class SearchComponent {
+export class SearchComponent implements AfterViewInit, OnDestroy {
   private itemService = inject(ItemService);
+  private el = inject(ElementRef);
+  private ctx!: gsap.Context;
 
   searchQuery = signal('');
   results = signal<SearchGroup[]>([]);
@@ -144,6 +147,36 @@ export class SearchComponent {
     ).subscribe(items => {
       this.loading.set(false);
       this.groupByContainer(items);
+      setTimeout(() => this.animateResults(), 50);
+    });
+  }
+
+  ngAfterViewInit() {
+    this.ctx = gsap.context(() => {
+      // Search box — dramatic entrance
+      gsap.from('.search-box', {
+        y: -40, scale: 1.05, autoAlpha: 0,
+        duration: 0.6, ease: 'expo.out'
+      });
+      // Recent searches — wave stagger
+      gsap.from('.search-page button', {
+        y: 15, autoAlpha: 0, duration: 0.4,
+        ease: 'power3.out',
+        stagger: { each: 0.05, from: 'random' },
+        delay: 0.3
+      });
+    }, this.el.nativeElement);
+  }
+
+  ngOnDestroy() {
+    this.ctx?.revert();
+  }
+
+  private animateResults() {
+    gsap.from('.search-result', {
+      x: -30, autoAlpha: 0, duration: 0.4,
+      ease: 'power4.out',
+      stagger: 0.05
     });
   }
 

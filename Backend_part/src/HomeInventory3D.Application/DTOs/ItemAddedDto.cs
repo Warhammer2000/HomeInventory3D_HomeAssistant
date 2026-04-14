@@ -22,4 +22,11 @@ public record ItemAddedDto(
     float? BboxMaxZ,
     string? MeshUrl,
     string? ThumbnailUrl,
-    float? Confidence);
+    float? Confidence,
+    float? MassKg,
+    float? RealSizeCm,
+    string? ColliderType,
+    float? Bounciness,
+    float? Friction,
+    string? MaterialType,
+    bool? IsFragile);

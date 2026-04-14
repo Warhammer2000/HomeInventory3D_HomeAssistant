@@ -18,12 +18,28 @@ export interface ItemAddedEvent {
   meshUrl?: string;
   thumbnailUrl?: string;
   confidence?: number;
+  massKg?: number;
+  realSizeCm?: number;
+  colliderType?: string;
+  bounciness?: number;
+  friction?: number;
+  materialType?: string;
+  isFragile?: boolean;
 }
 
 export interface ScanProgressEvent {
   scanId: string;
   containerId: string;
   progressPercent: number;
+  stage: string;
+}
+
+export interface ItemProgressEvent {
+  scanId: string;
+  itemName: string;
+  index: number;
+  total: number;
+  percent: number;
   stage: string;
 }
 

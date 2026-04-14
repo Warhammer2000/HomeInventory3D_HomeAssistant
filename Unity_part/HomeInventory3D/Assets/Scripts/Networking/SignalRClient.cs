@@ -26,6 +26,7 @@ namespace HomeInventory3D.Networking
         public event Action<string, string, int, int, int> OnScanCompleted;
         public event Action<string, string> OnItemRemoved;
         public event Action<string, string> OnScanFailed;
+        public event Action<VoiceSearchResultEvent> OnVoiceSearchResult;
 
         public bool IsConnected =>
 #if HAS_SIGNALR
@@ -91,6 +92,11 @@ namespace HomeInventory3D.Networking
                 _connection.On<string, string>("ScanFailed", (scanId, errorMessage) =>
                 {
                     UnityMainThread.Enqueue(() => OnScanFailed?.Invoke(scanId, errorMessage));
+                });
+
+                _connection.On<VoiceSearchResultEvent>("VoiceSearchResult", evt =>
+                {
+                    UnityMainThread.Enqueue(() => OnVoiceSearchResult?.Invoke(evt));
                 });
 
                 _connection.Reconnecting += error =>

@@ -12,4 +12,6 @@ public interface IInventoryNotificationService
     Task NotifyItemAddedAsync(ItemAddedDto item, CancellationToken ct);
     Task NotifyItemRemovedAsync(Guid itemId, Guid containerId, CancellationToken ct);
     Task NotifyScanFailedAsync(Guid scanId, string errorMessage, CancellationToken ct);
+    Task NotifyItemProgressAsync(Guid scanId, string itemName, int index, int total, int percent, string stage, CancellationToken ct);
+    Task NotifyVoiceSearchResultAsync(Guid itemId, Guid containerId, string itemName, string containerName, string answer, CancellationToken ct);
 }

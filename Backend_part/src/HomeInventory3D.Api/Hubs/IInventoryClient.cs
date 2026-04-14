@@ -12,4 +12,6 @@ public interface IInventoryClient
     Task ItemAdded(ItemAddedDto item);
     Task ItemRemoved(Guid itemId, Guid containerId);
     Task ScanFailed(Guid scanId, string errorMessage);
+    Task ItemProgress(string scanId, string itemName, int index, int total, int percent, string stage);
+    Task VoiceSearchResult(string itemId, string containerId, string itemName, string containerName, string answer);
 }

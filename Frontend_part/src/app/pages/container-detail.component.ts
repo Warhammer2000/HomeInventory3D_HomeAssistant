@@ -1,8 +1,9 @@
-import {ChangeDetectionStrategy, Component, inject, OnInit, signal} from '@angular/core';
+import {ChangeDetectionStrategy, Component, inject, OnInit, AfterViewInit, OnDestroy, ElementRef, signal} from '@angular/core';
 import {ActivatedRoute, RouterLink} from '@angular/router';
 import {NgClass, NgStyle} from '@angular/common';
 import {MatIconModule} from '@angular/material/icon';
 import {ContainerService} from '../services/container.service';
+import gsap from 'gsap';
 import {ItemService} from '../services/item.service';
 import {ScanService} from '../services/scan.service';
 import {ContainerDto} from '../models/container.model';
@@ -17,14 +18,14 @@ const COLORS = ['#FF6B7A', '#FF9F43', '#5BB8FF', '#9B8AFB', '#38D9C4', '#51E2A2'
   imports: [RouterLink, NgClass, NgStyle, MatIconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div class="detail-page">
       @if (loading()) {
         <div class="flex justify-center py-20">
           <div class="w-10 h-10 border-4 border-accent/20 border-t-accent rounded-full animate-spin"></div>
         </div>
       } @else if (container()) {
         <!-- Hero Banner -->
-        <div class="relative w-full rounded-b-[40px] md:rounded-[40px] md:mt-6 overflow-hidden p-8 md:p-12 mb-10"
+        <div class="detail-hero relative w-full rounded-b-[40px] md:rounded-[40px] md:mt-6 overflow-hidden p-8 md:p-12 mb-10"
              [ngStyle]="{'background-color': getColor(0) + '14'}">
 
           <a routerLink="/" class="inline-flex items-center text-text-secondary hover:text-text-primary mb-6 transition-colors font-medium">
@@ -81,8 +82,7 @@ const COLORS = ['#FF6B7A', '#FF9F43', '#5BB8FF', '#9B8AFB', '#38D9C4', '#51E2A2'
           } @else {
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mb-12">
               @for (item of items(); track item.id; let i = $index) {
-                <div class="bg-surface rounded-[24px] p-5 shadow-soft hover:shadow-soft-hover hover:-translate-y-1 transition-all duration-300 relative group animate-in fade-in slide-in-from-bottom-4 fill-mode-backwards"
-                     [style.animation-delay.ms]="i * 50">
+                <div class="detail-item bg-surface rounded-[24px] p-5 shadow-soft hover:shadow-soft-hover hover:-translate-y-1 transition-all duration-300 relative group">
 
                   @if (item.recognitionSource) {
                     <div class="absolute top-4 right-4 z-10 bg-white/90 backdrop-blur-sm px-2 py-1 squircle-sm shadow-sm flex items-center gap-1 text-[10px] font-bold text-accent">
@@ -161,11 +161,13 @@ const COLORS = ['#FF6B7A', '#FF9F43', '#5BB8FF', '#9B8AFB', '#38D9C4', '#51E2A2'
     </div>
   `
 })
-export class ContainerDetailComponent implements OnInit {
+export class ContainerDetailComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private containerService = inject(ContainerService);
   private itemService = inject(ItemService);
   private scanService = inject(ScanService);
+  private el = inject(ElementRef);
+  private ctx!: gsap.Context;
 
   container = signal<ContainerDto | null>(null);
   items = signal<ItemDto[]>([]);
@@ -183,14 +185,38 @@ export class ContainerDetailComponent implements OnInit {
       next: (c) => {
         this.container.set(c);
         this.loading.set(false);
+        setTimeout(() => this.animateHero(), 50);
       },
       error: () => this.loading.set(false)
     });
     this.itemService.getByContainer(id).subscribe({
-      next: (items) => this.items.set(items)
+      next: (items) => {
+        this.items.set(items);
+        setTimeout(() => this.animateItems(), 100);
+      }
     });
     this.scanService.getHistory(id).subscribe({
       next: (scans) => this.scans.set(scans)
+    });
+  }
+
+  ngOnDestroy() {
+    this.ctx?.revert();
+  }
+
+  private animateHero() {
+    this.ctx = gsap.context(() => {
+      const tl = gsap.timeline();
+      tl.from('.detail-hero', { y: -60, autoAlpha: 0, duration: 0.7, ease: 'expo.out' })
+        .from('.detail-hero h1', { y: 40, skewY: 3, autoAlpha: 0, duration: 0.5, ease: 'power4.out' }, '-=0.4');
+    }, this.el.nativeElement);
+  }
+
+  private animateItems() {
+    gsap.from('.detail-item', {
+      y: 50, autoAlpha: 0, scale: 0.9, rotation: -2,
+      duration: 0.5, ease: 'back.out(1.4)',
+      stagger: { each: 0.06, from: 'start' }
     });
   }
 

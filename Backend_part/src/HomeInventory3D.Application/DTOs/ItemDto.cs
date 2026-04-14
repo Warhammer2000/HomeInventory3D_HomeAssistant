@@ -30,4 +30,11 @@ public record ItemDto(
     RecognitionSource? RecognitionSource,
     ItemStatus Status,
     DateTime CreatedAt,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    float? MassKg,
+    float? RealSizeCm,
+    string? ColliderType,
+    float? Bounciness,
+    float? Friction,
+    string? MaterialType,
+    bool? IsFragile);

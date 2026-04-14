@@ -1,0 +1,12 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Настройка HomeInventory3D",
+        "data": {
+          "backend_url": "URL бэкенда API"
+        }
+      }
+    }
+  }
+}

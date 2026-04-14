@@ -40,4 +40,18 @@ public class SignalRNotificationService(
     {
         await hubContext.Clients.All.ScanFailed(scanId, errorMessage);
     }
+
+    public async Task NotifyVoiceSearchResultAsync(
+        Guid itemId, Guid containerId, string itemName, string containerName, string answer, CancellationToken ct)
+    {
+        await hubContext.Clients.All.VoiceSearchResult(
+            itemId.ToString(), containerId.ToString(), itemName, containerName, answer);
+    }
+
+    public async Task NotifyItemProgressAsync(
+        Guid scanId, string itemName, int index, int total, int percent, string stage, CancellationToken ct)
+    {
+        await hubContext.Clients.All.ItemProgress(
+            scanId.ToString(), itemName, index, total, percent, stage);
+    }
 }

@@ -1,0 +1,11 @@
+{
+  "domain": "home_inventory_3d",
+  "name": "HomeInventory3D",
+  "version": "1.0.0",
+  "documentation": "https://github.com/HomeInventory3D",
+  "dependencies": ["webhook"],
+  "requirements": ["aiohttp"],
+  "codeowners": [],
+  "config_flow": true,
+  "iot_class": "local_push"
+}
